@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Search, Settings } from 'lucide-react';
+import { Home, Search, Settings, Trophy } from 'lucide-react';
 import { S } from './styles';
 import { getStoredTimezone, setTimezone as storeSetTimezone } from './api';
 import HomePage from './pages/HomePage';
@@ -8,6 +8,8 @@ import MatchPage from './pages/MatchPage';
 import ClubPage from './pages/ClubPage';
 import PlayerPage from './pages/PlayerPage';
 import SearchPage from './pages/SearchPage';
+import LeaguesPage from './pages/LeaguesPage';
+import LeaguePage from './pages/LeaguePage';
 import TimezoneSettings from './components/TimezoneSettings';
 
 export default function App() {
@@ -70,6 +72,8 @@ export default function App() {
           <Route path="/club/:id" element={<ClubPage />} />
           <Route path="/player/:id" element={<PlayerPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/leagues" element={<LeaguesPage />} />
+          <Route path="/league/:id" element={<LeaguePage />} />
         </Routes>
       </main>
 
@@ -85,6 +89,16 @@ export default function App() {
           >
             <Home size={22} />
             <span>Home</span>
+          </Link>
+          <Link
+            to="/leagues"
+            style={{
+              ...S.navItem,
+              ...(path.startsWith('/leagues') || path.startsWith('/league/') ? S.navItemActive : {}),
+            }}
+          >
+            <Trophy size={22} />
+            <span>Leagues</span>
           </Link>
           <Link
             to="/search"

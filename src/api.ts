@@ -476,6 +476,91 @@ export function playerPhotoUrl(playerId: number): string {
   return `https://images.fotmob.com/image_resources/playerimage/player/${playerId}.png`;
 }
 
+export function leagueLogoUrl(leagueId: number): string {
+  return `https://images.fotmob.com/image_resources/logo/leaguelogo/${leagueId}.png`;
+}
+
+// --- Leagues Data ---
+
+export interface LeagueMeta {
+  id: number;
+  name: string;
+  country: string;
+  region: string;
+}
+
+export const LEAGUES: LeagueMeta[] = [
+  // International
+  { id: 42, name: 'Champions League', country: 'International', region: 'International' },
+  { id: 73, name: 'Europa League', country: 'International', region: 'International' },
+  { id: 10216, name: 'Conference League', country: 'International', region: 'International' },
+  { id: 77, name: 'FIFA World Cup', country: 'International', region: 'International' },
+  { id: 50, name: 'EURO', country: 'International', region: 'International' },
+  { id: 44, name: 'Copa America', country: 'International', region: 'International' },
+  // Top Europe
+  { id: 147, name: 'Premier League', country: 'England', region: 'Top Europe' },
+  { id: 87, name: 'La Liga', country: 'Spain', region: 'Top Europe' },
+  { id: 164, name: 'Serie A', country: 'Italy', region: 'Top Europe' },
+  { id: 154, name: 'Bundesliga', country: 'Germany', region: 'Top Europe' },
+  { id: 168, name: 'Ligue 1', country: 'France', region: 'Top Europe' },
+  // Other Europe
+  { id: 57, name: 'Eredivisie', country: 'Netherlands', region: 'Other Europe' },
+  { id: 61, name: 'Liga Portugal', country: 'Portugal', region: 'Other Europe' },
+  { id: 69, name: 'Süper Lig', country: 'Turkey', region: 'Other Europe' },
+  { id: 64, name: 'Scottish Premiership', country: 'Scotland', region: 'Other Europe' },
+  { id: 40, name: 'Championship', country: 'England', region: 'Other Europe' },
+  { id: 46, name: 'Superligaen', country: 'Denmark', region: 'Other Europe' },
+  { id: 68, name: 'Allsvenskan', country: 'Sweden', region: 'Other Europe' },
+  { id: 58, name: 'Eliteserien', country: 'Norway', region: 'Other Europe' },
+  // Americas
+  { id: 112, name: 'Liga Profesional', country: 'Argentina', region: 'Americas' },
+  { id: 23, name: 'Serie A', country: 'Brazil', region: 'Americas' },
+  { id: 130, name: 'MLS', country: 'USA', region: 'Americas' },
+  { id: 121, name: 'Liga MX', country: 'Mexico', region: 'Americas' },
+  // Asia
+  { id: 98, name: 'J1 League', country: 'Japan', region: 'Asia' },
+  { id: 292, name: 'K League 1', country: 'South Korea', region: 'Asia' },
+  { id: 35, name: 'Pro League', country: 'Saudi Arabia', region: 'Asia' },
+];
+
+// --- League Detail ---
+
+export interface LeagueDetailData {
+  details: {
+    id: number;
+    name: string;
+    shortName?: string;
+    country?: string;
+    countryCode?: string;
+    seostr?: string;
+    ccode?: string;
+    gender?: string;
+    season?: string;
+  };
+  table: any[];
+  allTableData: any[];
+  fixtures: {
+    allMatches: any[];
+    pastPast: any[];
+    pastLastFetchedPage: any;
+    futureFixtures: any[];
+  };
+  stats: any;
+  history: any;
+  hasOngoingLeague: boolean;
+}
+
+export async function fetchLeagueDetail(id: number | string): Promise<LeagueDetailData | null> {
+  try {
+    const res = await fetch(`${API_BASE}/fotmob/league/${id}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.data || null;
+  } catch {
+    return null;
+  }
+}
+
 export function getMatchStatusText(match: FotMobMatch): string {
   if (match.status?.finished) return match.status?.scoreStr || 'FT';
   if (match.status?.started) return match.status?.scoreStr || "'";
