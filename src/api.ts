@@ -297,11 +297,97 @@ export interface SearchResults {
 
 // --- Fetch functions ---
 
+// Get the UTC date range that covers a local date in the given timezone
+function getUTCRangeForLocalDate(localDate: string, timezone: string): { from: string; to: string } {
+  // localDate = "2026-06-28" in user's timezone
+  // We need UTC range that covers 00:00-23:59 in that timezone
+  // For WIB (UTC+7): local 00:00 = UTC 17:00 prev day, local 23:59 = UTC 16:59 current day
+  
+  const [y, m, d] = localDate.split('-').map(Number);
+  
+  // Create date at 00:00 local time, then get UTC equivalent
+  const localMidnight = new Date(`${localDate}T00:00:00`);
+  const localEnd = new Date(`${localDate}T23:59:59`);
+  
+  // Get the timezone offset in minutes for this specific date
+  const utcMidnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+  const utcEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59));
+  
+  // Use Intl to get the offset
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  
+  // Find what UTC time corresponds to local midnight
+  // We need to find UTC time where formatter.format(utc) = localDate + "00:00:00"
+  // Simple approach: iterate around the date
+  const guess = new Date(Date.UTC(y, m - 1, d, 12, 0, 0)); // noon UTC as starting point
+  const formatted = formatter.format(guess);
+  const [fDate, fTime] = formatted.split(', ');
+  const [fm, fd, fy] = fDate.split('/').map(Number);
+  const localDateNum = y * 10000 + m * 100 + d;
+  const guessDateNum = fy * 10000 + fm * 100 + fd;
+  
+  let offsetHours = 0;
+  if (guessDateNum > localDateNum) {
+    // Local date is ahead of UTC (positive offset, e.g., WIB +7)
+    offsetHours = (guessDateNum - localDateNum) * 24;
+  } else if (guessDateNum < localDateNum) {
+    // Local date is behind UTC (negative offset, e.g., PST -8)
+    offsetHours = -(localDateNum - guessDateNum) * 24;
+  }
+  
+  // Adjust based on time component
+  const [fh, fmi] = (fTime || '12:00:00').split(':').map(Number);
+  if (fh !== 12) {
+    offsetHours += (fh - 12);
+  }
+  
+  const utcFrom = new Date(Date.UTC(y, m - 1, d, -offsetHours, 0, 0));
+  const utcTo = new Date(Date.UTC(y, m - 1, d, 24 - offsetHours - 1, 59, 59));
+  
+  return {
+    from: utcFrom.toISOString().split('T')[0],
+    to: utcTo.toISOString().split('T')[0],
+  };
+}
+
+// Get local date string from UTC time + timezone
+export function getLocalDate(utcTime: string, timezone: string): string {
+  try {
+    const d = new Date(utcTime);
+    return d.toLocaleDateString('en-CA', { timeZone: timezone }); // Returns YYYY-MM-DD
+  } catch {
+    return utcTime?.split('T')[0] || '';
+  }
+}
+
 export async function fetchMatchesByDate(date: string): Promise<FotMobLeague[]> {
-  const res = await fetch(`${API_BASE}/fotmob/matches/date/${date}`);
-  if (!res.ok) return [];
-  const json = await res.json();
-  return json?.data?.leagues || [];
+  const timezone = getStoredTimezone();
+  
+  // Get UTC range that covers this local date
+  const { from, to } = getUTCRangeForLocalDate(date, timezone);
+  
+  // Fetch range from backend
+  const leagues = await fetchMatchesRange(from, to);
+  
+  // Filter matches that fall on this local date
+  const filtered: FotMobLeague[] = [];
+  for (const league of leagues) {
+    const dayMatches = (league.matches || []).filter((m) => {
+      if (!m.status?.utcTime) return false;
+      const localDate = getLocalDate(m.status.utcTime, timezone);
+      return localDate === date;
+    });
+    if (dayMatches.length > 0) {
+      filtered.push({ ...league, matches: dayMatches });
+    }
+  }
+  
+  return filtered;
 }
 
 export async function fetchMatchesRange(from: string, to: string): Promise<FotMobLeague[]> {
