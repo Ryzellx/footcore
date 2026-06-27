@@ -183,6 +183,8 @@ export interface MatchDetailData {
       }>;
     };
     playerStats?: Record<string, { name: string; teamName?: string; stats?: any[] }>;
+    momentum?: { main?: { data?: Array<{ minute: number; value: number }> } };
+    table?: any;
   };
 }
 
