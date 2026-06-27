@@ -6,10 +6,10 @@ import {
   playerPhotoUrl,
   getMatchStatusFromHeader,
   getMatchScoreStrFromHeader,
+  formatMatchTime,
+  getStoredTimezone,
   type MatchDetailData,
 } from '../api';
-import { S, colors } from '../styles';
-import { ArrowLeft } from 'lucide-react';
 
 type Tab = 'overview' | 'stats' | 'lineup' | 'h2h';
 
@@ -38,20 +38,20 @@ export default function MatchPage() {
 
   if (loading) {
     return (
-      <div style={S.loadingContainer}>
-        <div style={S.spinner} />
-        <span style={S.loadingText}>Loading match details...</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 20px', gap: 16 }}>
+        <div style={{ width: 40, height: 40, border: '3px solid #333', borderTop: '3px solid #00D26A', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <span style={{ fontSize: 13, color: '#666' }}>Loading match...</span>
       </div>
     );
   }
 
   if (!detail || !detail.header) {
     return (
-      <div style={S.emptyContainer}>
-        <span style={{ fontSize: 48, opacity: 0.3 }}>⚽</span>
-        <p style={S.emptyText}>Match not found</p>
-        <button style={S.backBtn} onClick={() => navigate(-1)}>
-          <ArrowLeft size={16} /> Go back
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 20px', gap: 16 }}>
+        <span style={{ fontSize: 48, opacity: 0.2 }}>⚽</span>
+        <p style={{ fontSize: 16, fontWeight: 600, color: '#888' }}>Match not found</p>
+        <button onClick={() => navigate(-1)} style={{ background: '#333', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+          ← Go back
         </button>
       </div>
     );
@@ -68,6 +68,7 @@ export default function MatchPage() {
   const lineup = detail.content?.lineup;
   const h2h = detail.content?.h2h;
   const potm = detail.content?.matchFacts?.playerOfTheMatch;
+  const timezone = getStoredTimezone();
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -77,102 +78,122 @@ export default function MatchPage() {
   ];
 
   return (
-    <div className="animate-fade-in">
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
       {/* Back button */}
-      <button style={S.backBtn} onClick={() => navigate(-1)}>
-        <ArrowLeft size={16} /> Back
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'none', border: 'none', color: '#999',
+          cursor: 'pointer', fontSize: 13, fontWeight: 600,
+          padding: '12px 0', fontFamily: 'inherit',
+        }}
+      >
+        ← Back
       </button>
 
-      {/* Match header */}
-      <div style={S.detailHeader}>
+      {/* Match header - FotMob style */}
+      <div style={{
+        background: '#222',
+        borderRadius: 0,
+        padding: '24px 16px',
+        textAlign: 'center',
+        marginBottom: 0,
+        borderBottom: '1px solid #333',
+      }}>
+        {/* League name */}
         {infoBox?.Tournament?.name && (
-          <div style={S.detailLeague}>{infoBox.Tournament.name}</div>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 16, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            {infoBox.Tournament.name}
+          </div>
         )}
-        <div style={S.detailTeams}>
-          <div style={S.detailTeam}>
-            <Link to={`/club/${homeTeam.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+
+        {/* Teams + Score */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+          {/* Home team */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <Link to={`/club/${homeTeam.id}`} style={{ textDecoration: 'none' }}>
               <img
                 src={teamLogoUrl(homeTeam.id)}
                 alt=""
-                style={S.detailTeamLogo}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.opacity = '0.3';
-                }}
+                style={{ width: 64, height: 64, objectFit: 'contain' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
               />
             </Link>
-            <span style={S.detailTeamName}>{homeTeam.name}</span>
-          </div>
-
-          <div style={S.detailScore}>
-            <span
-              style={{
-                ...S.detailScoreNum,
-                color:
-                  statusType === 'live'
-                    ? colors.live
-                    : statusType === 'ft'
-                    ? colors.ft
-                    : colors.text,
-              }}
-            >
-              {homeTeam.score ?? ''}
-            </span>
-            <span style={S.detailScoreDash}>-</span>
-            <span
-              style={{
-                ...S.detailScoreNum,
-                color:
-                  statusType === 'live'
-                    ? colors.live
-                    : statusType === 'ft'
-                    ? colors.ft
-                    : colors.text,
-              }}
-            >
-              {awayTeam.score ?? ''}
+            <span style={{ fontSize: 15, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+              {homeTeam.name}
             </span>
           </div>
 
-          <div style={S.detailTeam}>
-            <Link to={`/club/${awayTeam.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+          {/* Score */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, minWidth: 80 }}>
+            {statusType === 'scheduled' ? (
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#888', fontVariantNumeric: 'tabular-nums' }}>
+                {header.status?.utcTime ? formatMatchTime(header.status.utcTime, timezone) : '--:--'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                  fontSize: 40, fontWeight: 800, color: statusType === 'live' ? '#FF4444' : '#fff',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {homeTeam.score ?? ''}
+                </span>
+                <span style={{ fontSize: 28, color: '#666', fontWeight: 300 }}>:</span>
+                <span style={{
+                  fontSize: 40, fontWeight: 800, color: statusType === 'live' ? '#FF4444' : '#fff',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {awayTeam.score ?? ''}
+                </span>
+              </div>
+            )}
+
+            {/* Status badge */}
+            <span style={{
+              fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 4,
+              background: statusType === 'live' ? 'rgba(255,68,68,0.15)' : statusType === 'ft' ? 'rgba(0,210,106,0.15)' : '#333',
+              color: statusType === 'live' ? '#FF4444' : statusType === 'ft' ? '#00D26A' : '#888',
+            }}>
+              {statusType === 'live' ? (header.status?.liveTime?.short || scoreStr) : statusType === 'ft' ? 'FT' : scoreStr}
+            </span>
+          </div>
+
+          {/* Away team */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <Link to={`/club/${awayTeam.id}`} style={{ textDecoration: 'none' }}>
               <img
                 src={teamLogoUrl(awayTeam.id)}
                 alt=""
-                style={S.detailTeamLogo}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.opacity = '0.3';
-                }}
+                style={{ width: 64, height: 64, objectFit: 'contain' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
               />
             </Link>
-            <span style={S.detailTeamName}>{awayTeam.name}</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+              {awayTeam.name}
+            </span>
           </div>
-        </div>
-
-        {/* Status badge */}
-        <div
-          style={{
-            ...S.detailStatus,
-            ...(statusType === 'live'
-              ? S.statusLive
-              : statusType === 'ft'
-              ? S.statusFT
-              : S.statusScheduled),
-          }}
-        >
-          {scoreStr}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={S.tabBar}>
+      {/* Tabs - FotMob style */}
+      <div style={{
+        display: 'flex', gap: 0, borderBottom: '1px solid #333',
+        background: '#1B1B1B', position: 'sticky', top: 56, zIndex: 50,
+        overflowX: 'auto', scrollbarWidth: 'none',
+      }}>
         {tabs.map((t) => (
           <button
             key={t.id}
-            style={{
-              ...S.tab,
-              ...(tab === t.id ? S.tabActive : {}),
-            }}
             onClick={() => setTab(t.id)}
+            style={{
+              flex: '0 0 auto', padding: '14px 20px', fontSize: 13, fontWeight: 700,
+              color: tab === t.id ? '#00D26A' : '#666',
+              background: 'none', border: 'none', cursor: 'pointer',
+              borderBottom: tab === t.id ? '3px solid #00D26A' : '3px solid transparent',
+              transition: 'all 0.15s ease', whiteSpace: 'nowrap',
+              fontFamily: 'inherit',
+            }}
           >
             {t.label}
           </button>
@@ -180,94 +201,72 @@ export default function MatchPage() {
       </div>
 
       {/* Tab content */}
-      {tab === 'overview' && (
-        <OverviewTab
-          infoBox={infoBox}
-          events={events}
-          potm={potm}
-          homeTeam={homeTeam}
-          awayTeam={awayTeam}
-        />
-      )}
-      {tab === 'stats' && <StatsTab stats={statsData} />}
-      {tab === 'lineup' && <LineupTab lineup={lineup} />}
-      {tab === 'h2h' && <H2HTab h2h={h2h} />}
+      <div style={{ padding: '16px 0' }}>
+        {tab === 'overview' && <OverviewTab infoBox={infoBox} events={events} potm={potm} homeTeam={homeTeam} awayTeam={awayTeam} timezone={timezone} />}
+        {tab === 'stats' && <StatsTab stats={statsData} />}
+        {tab === 'lineup' && <LineupTab lineup={lineup} />}
+        {tab === 'h2h' && <H2HTab h2h={h2h} />}
+      </div>
     </div>
   );
 }
 
 // --- Overview Tab ---
-function OverviewTab({
-  infoBox,
-  events,
-  potm,
-  homeTeam,
-  awayTeam,
-}: {
-  infoBox: any;
-  events: any[];
-  potm: any;
-  homeTeam: any;
-  awayTeam: any;
+function OverviewTab({ infoBox, events, potm, homeTeam, awayTeam, timezone }: {
+  infoBox: any; events: any[]; potm: any; homeTeam: any; awayTeam: any; timezone: string;
 }) {
   return (
     <div>
       {/* POTM */}
       {potm && potm.name && (
-        <div style={S.potmContainer}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 16, padding: '16px',
+          background: '#222', marginBottom: 16,
+        }}>
           {potm.imageUrl && (
-            <img
-              src={potm.imageUrl}
-              alt=""
-              style={S.potmPhoto}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
+            <img src={potm.imageUrl} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           )}
           <div>
-            <div style={{ fontSize: 11, color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
+            <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
               Player of the Match
             </div>
-            <div style={S.potmName}>{potm.name}</div>
-            {potm.teamName && <div style={S.potmTeam}>{potm.teamName}</div>}
-            {potm.rating?.num && (
-              <span
-                style={{
-                  ...S.potmRating,
-                  background: potm.rating.bgcolor || colors.accent,
-                  color: colors.white,
-                }}
-              >
-                {potm.rating.num}
-              </span>
-            )}
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginTop: 4 }}>{potm.name}</div>
+            {potm.teamName && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{potm.teamName}</div>}
           </div>
+          {potm.rating?.num && (
+            <span style={{
+              marginLeft: 'auto', background: potm.rating.bgcolor || '#00D26A',
+              color: '#fff', padding: '6px 10px', borderRadius: 6, fontSize: 14, fontWeight: 800,
+            }}>
+              {potm.rating.num}
+            </span>
+          )}
         </div>
       )}
 
       {/* Match info */}
       {infoBox && (
-        <div style={S.infoBox}>
+        <div style={{ background: '#222', marginBottom: 16 }}>
           {infoBox.Stadium?.name && (
-            <div style={S.infoRow}>
-              <span style={S.infoLabel}>Stadium</span>
-              <span style={S.infoValue}>{infoBox.Stadium.name}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #2A2A2A' }}>
+              <span style={{ fontSize: 13, color: '#666' }}>Stadium</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{infoBox.Stadium.name}</span>
             </div>
           )}
           {infoBox.Referee?.name && (
-            <div style={S.infoRow}>
-              <span style={S.infoLabel}>Referee</span>
-              <span style={S.infoValue}>
-                {infoBox.Referee.name}
-                {infoBox.Referee.country ? ` (${infoBox.Referee.country})` : ''}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #2A2A2A' }}>
+              <span style={{ fontSize: 13, color: '#666' }}>Referee</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+                {infoBox.Referee.name}{infoBox.Referee.country ? ` (${infoBox.Referee.country})` : ''}
               </span>
             </div>
           )}
           {infoBox.Attendance && (
-            <div style={{ ...S.infoRow, ...S.infoRowLast }}>
-              <span style={S.infoLabel}>Attendance</span>
-              <span style={S.infoValue}>{infoBox.Attendance.toLocaleString()}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px' }}>
+              <span style={{ fontSize: 13, color: '#666' }}>Attendance</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{infoBox.Attendance.toLocaleString()}</span>
             </div>
           )}
         </div>
@@ -276,7 +275,9 @@ function OverviewTab({
       {/* Events */}
       {events.length > 0 && (
         <div>
-          <div style={S.sectionTitle}>Match Events</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', padding: '12px 0', borderBottom: '1px solid #333', marginBottom: 8 }}>
+            Match Events
+          </div>
           {events.map((evt: any, i: number) => {
             const isGoal = evt.type === 'goal';
             const isYellow = evt.type === 'yellowcard';
@@ -286,23 +287,19 @@ function OverviewTab({
             const isHome = evt.isHome;
 
             return (
-              <div
-                key={i}
-                style={{
-                  ...S.eventRow,
-                  flexDirection: isHome ? 'row' : 'row-reverse',
-                  textAlign: isHome ? 'left' : 'right',
-                }}
-              >
-                <span style={S.eventMinute}>{evt.time?.formatted || evt.minute || ''}</span>
-                <span style={S.eventIcon}>{icon}</span>
-                <div style={{ ...S.eventInfo, textAlign: isHome ? 'left' : 'right' }}>
-                  <span style={S.eventPlayer}>{evt.player?.name || ''}</span>
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 0', borderBottom: '1px solid #1A1A1A',
+                flexDirection: isHome ? 'row' : 'row-reverse',
+              }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#666', minWidth: 30, textAlign: isHome ? 'left' : 'right' }}>
+                  {evt.time?.formatted || evt.minute || ''}
+                </span>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+                <div style={{ flex: 1, textAlign: isHome ? 'left' : 'right' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{evt.player?.name || ''}</div>
                   {evt.assist?.player?.name && (
-                    <div style={S.eventDetail}>Assist: {evt.assist.player.name}</div>
-                  )}
-                  {evt.incidentClass && (
-                    <div style={S.eventDetail}>{evt.incidentClass}</div>
+                    <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>Assist: {evt.assist.player.name}</div>
                   )}
                 </div>
               </div>
@@ -317,11 +314,7 @@ function OverviewTab({
 // --- Stats Tab ---
 function StatsTab({ stats }: { stats: any[] }) {
   if (!stats || stats.length === 0) {
-    return (
-      <div style={S.emptyContainer}>
-        <p style={{ color: colors.textMuted }}>No statistics available</p>
-      </div>
-    );
+    return <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666' }}>No statistics available</div>;
   }
 
   return (
@@ -334,21 +327,19 @@ function StatsTab({ stats }: { stats: any[] }) {
         const isPercentage = stat.key === 'possession' || stat.title?.toLowerCase().includes('possession');
 
         return (
-          <div key={i} style={S.statRow}>
-            <div style={S.statHeader}>
-              <span style={{ fontWeight: 700, color: homeVal >= awayVal ? colors.accent : colors.textMuted }}>
+          <div key={i} style={{ padding: '12px 0', borderBottom: '1px solid #2A2A2A' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: homeVal >= awayVal ? '#00D26A' : '#666', minWidth: 50, textAlign: 'left' }}>
                 {isPercentage ? `${homeVal}%` : homeVal}
               </span>
-              <span style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' as const, flex: 1 }}>
-                {stat.title}
-              </span>
-              <span style={{ fontWeight: 700, color: awayVal >= homeVal ? colors.accent : colors.textMuted }}>
+              <span style={{ fontSize: 12, color: '#888', textAlign: 'center', flex: 1 }}>{stat.title}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: awayVal >= homeVal ? '#00D26A' : '#666', minWidth: 50, textAlign: 'right' }}>
                 {isPercentage ? `${awayVal}%` : awayVal}
               </span>
             </div>
-            <div style={S.statBarContainer}>
-              <div style={{ ...S.statBarHome, width: `${homePct}%` }} />
-              <div style={{ ...S.statBarAway, width: `${100 - homePct}%` }} />
+            <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', background: '#1A1A1A' }}>
+              <div style={{ background: '#00D26A', width: `${homePct}%`, transition: 'width 0.3s ease' }} />
+              <div style={{ background: '#555', width: `${100 - homePct}%`, transition: 'width 0.3s ease' }} />
             </div>
           </div>
         );
@@ -360,50 +351,39 @@ function StatsTab({ stats }: { stats: any[] }) {
 // --- Lineup Tab ---
 function LineupTab({ lineup }: { lineup: any }) {
   if (!lineup) {
-    return (
-      <div style={S.emptyContainer}>
-        <p style={{ color: colors.textMuted }}>No lineup data available</p>
-      </div>
-    );
+    return <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666' }}>No lineup data available</div>;
   }
 
-  const homeTeam = lineup.homeTeam;
-  const awayTeam = lineup.awayTeam;
-
-  const renderTeam = (team: any, side: 'home' | 'away') => {
+  const renderTeam = (team: any) => {
     if (!team) return null;
     const players = team.startingXI || [];
     const subs = team.subs || [];
 
     return (
-      <div style={S.lineupTeam}>
-        <div style={S.lineupFormation}>{team.formation}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: '#00D26A', marginBottom: 12 }}>{team.formation}</div>
         {players.map((p: any, i: number) => {
           const player = p.player || p;
           return (
-            <div
-              key={i}
-              style={S.lineupPlayer}
-            >
-              <span style={S.lineupNumber}>{player.jerseyNumber || p.shirtNumber || ''}</span>
-              <span style={S.lineupPlayerName}>
-                {player.name || p.name || ''}
-                {p.captain ? ' (C)' : ''}
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#666', minWidth: 22 }}>{player.jerseyNumber || p.shirtNumber || ''}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: '#fff' }}>
+                {player.name || p.name || ''}{p.captain ? ' (C)' : ''}
               </span>
             </div>
           );
         })}
         {subs.length > 0 && (
-          <div style={S.subsSection}>
-            <div style={{ fontSize: 11, color: colors.textMuted, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #333' }}>
+            <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
               Substitutes
             </div>
             {subs.map((p: any, i: number) => {
               const player = p.player || p;
               return (
-                <div key={i} style={S.lineupPlayer}>
-                  <span style={S.lineupNumber}>{player.jerseyNumber || p.shirtNumber || ''}</span>
-                  <span style={{ color: colors.textSecondary }}>{player.name || p.name || ''}</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#666', minWidth: 22 }}>{player.jerseyNumber || p.shirtNumber || ''}</span>
+                  <span style={{ fontSize: 13, color: '#888' }}>{player.name || p.name || ''}</span>
                 </div>
               );
             })}
@@ -414,10 +394,10 @@ function LineupTab({ lineup }: { lineup: any }) {
   };
 
   return (
-    <div style={S.lineupContainer}>
-      {renderTeam(homeTeam, 'home')}
-      <div style={{ width: 1, background: colors.border, margin: '0 8px' }} />
-      {renderTeam(awayTeam, 'away')}
+    <div style={{ display: 'flex', gap: 16 }}>
+      {renderTeam(lineup.homeTeam)}
+      <div style={{ width: 1, background: '#333', margin: '0 8px' }} />
+      {renderTeam(lineup.awayTeam)}
     </div>
   );
 }
@@ -425,11 +405,7 @@ function LineupTab({ lineup }: { lineup: any }) {
 // --- H2H Tab ---
 function H2HTab({ h2h }: { h2h: any }) {
   if (!h2h) {
-    return (
-      <div style={S.emptyContainer}>
-        <p style={{ color: colors.textMuted }}>No head-to-head data available</p>
-      </div>
-    );
+    return <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666' }}>No head-to-head data available</div>;
   }
 
   const summary = h2h.summary || [0, 0, 0];
@@ -438,41 +414,40 @@ function H2HTab({ h2h }: { h2h: any }) {
   return (
     <div>
       {/* Summary */}
-      <div style={S.h2hSummary}>
-        <div style={S.h2hStat}>
-          <div style={{ ...S.h2hNum, color: colors.accent }}>{summary[0]}</div>
-          <div style={S.h2hLabel}>Wins</div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 40, padding: '20px 0', borderBottom: '1px solid #333', marginBottom: 16 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#00D26A' }}>{summary[0]}</div>
+          <div style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Wins</div>
         </div>
-        <div style={S.h2hStat}>
-          <div style={{ ...S.h2hNum, color: colors.textMuted }}>{summary[1]}</div>
-          <div style={S.h2hLabel}>Draws</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#888' }}>{summary[1]}</div>
+          <div style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Draws</div>
         </div>
-        <div style={S.h2hStat}>
-          <div style={{ ...S.h2hNum, color: colors.live }}>{summary[2]}</div>
-          <div style={S.h2hLabel}>Losses</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#FF4444' }}>{summary[2]}</div>
+          <div style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Losses</div>
         </div>
       </div>
 
       {/* Recent meetings */}
-      <div style={S.sectionTitle}>Recent Meetings</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', padding: '12px 0', borderBottom: '1px solid #333', marginBottom: 8 }}>
+        Recent Meetings
+      </div>
       {matches.length === 0 && (
-        <p style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center' as const, padding: '20px 0' }}>
-          No recent meetings
-        </p>
+        <p style={{ color: '#666', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No recent meetings</p>
       )}
       {matches.map((m: any, i: number) => (
-        <div key={i} style={S.h2hMatch}>
-          <div style={{ flex: 1, textAlign: 'right' as const }}>
-            <span style={{ fontSize: 13 }}>{m.home?.name || ''}</span>
-          </div>
-          <div style={{ minWidth: 60, textAlign: 'center' as const, fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' as const }}>
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', padding: '12px 0',
+          borderBottom: '1px solid #1A1A1A',
+        }}>
+          <div style={{ flex: 1, textAlign: 'right', fontSize: 13, color: '#fff' }}>{m.home?.name || ''}</div>
+          <div style={{ minWidth: 70, textAlign: 'center', fontWeight: 800, fontSize: 15, fontVariantNumeric: 'tabular-nums', color: '#fff' }}>
             {m.status?.scoreStr || `${m.home?.score ?? ''} - ${m.away?.score ?? ''}`}
           </div>
-          <div style={{ flex: 1, textAlign: 'left' as const }}>
-            <span style={{ fontSize: 13 }}>{m.away?.name || ''}</span>
-          </div>
-          <div style={{ fontSize: 11, color: colors.textMuted, marginLeft: 12 }}>
-            {m.time ? new Date(m.time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+          <div style={{ flex: 1, textAlign: 'left', fontSize: 13, color: '#fff' }}>{m.away?.name || ''}</div>
+          <div style={{ fontSize: 11, color: '#666', marginLeft: 12 }}>
+            {m.time ? new Date(m.time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
           </div>
         </div>
       ))}
