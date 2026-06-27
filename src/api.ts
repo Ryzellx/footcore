@@ -7,22 +7,87 @@ export const API_BASE =
     ? DEV_API
     : PROD_API;
 
+// --- Timezone Utilities ---
+
+export const TIMEZONES = [
+  { id: 'Asia/Jakarta', label: 'WIB (Jakarta)', offset: 7 },
+  { id: 'Asia/Makassar', label: 'WITA (Bali)', offset: 8 },
+  { id: 'Asia/Jayapura', label: 'WIT (Papua)', offset: 9 },
+  { id: 'Europe/London', label: 'GMT (London)', offset: 0 },
+  { id: 'Europe/Paris', label: 'CET (Paris)', offset: 1 },
+  { id: 'Europe/Berlin', label: 'CET (Berlin)', offset: 1 },
+  { id: 'Europe/Madrid', label: 'CET (Madrid)', offset: 1 },
+  { id: 'Europe/Rome', label: 'CET (Rome)', offset: 1 },
+  { id: 'America/New_York', label: 'EST (New York)', offset: -5 },
+  { id: 'America/Chicago', label: 'CST (Chicago)', offset: -6 },
+  { id: 'America/Denver', label: 'MST (Denver)', offset: -7 },
+  { id: 'America/Los_Angeles', label: 'PST (Los Angeles)', offset: -8 },
+  { id: 'Asia/Tokyo', label: 'JST (Tokyo)', offset: 9 },
+  { id: 'Asia/Seoul', label: 'KST (Seoul)', offset: 9 },
+  { id: 'Asia/Shanghai', label: 'CST (Shanghai)', offset: 8 },
+  { id: 'Asia/Dubai', label: 'GST (Dubai)', offset: 4 },
+  { id: 'Asia/Kolkata', label: 'IST (India)', offset: 5.5 },
+  { id: 'Australia/Sydney', label: 'AEST (Sydney)', offset: 10 },
+  { id: 'America/Sao_Paulo', label: 'BRT (São Paulo)', offset: -3 },
+  { id: 'Africa/Cairo', label: 'EET (Cairo)', offset: 2 },
+];
+
+export function getStoredTimezone(): string {
+  const stored = localStorage.getItem('footcore_timezone');
+  if (stored && TIMEZONES.some((tz) => tz.id === stored)) return stored;
+  // Auto-detect
+  try {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (TIMEZONES.some((tz) => tz.id === detected)) return detected;
+  } catch {}
+  return 'Europe/London';
+}
+
+export function setTimezone(tz: string) {
+  localStorage.setItem('footcore_timezone', tz);
+}
+
+export function convertUTCToLocal(utcTime: string, timezone: string): Date {
+  // utcTime format: "2025-06-28T21:00:00Z" or "2025-06-28T21:00:00.000Z"
+  return new Date(utcTime);
+}
+
+export function formatMatchTime(utcTime: string | undefined, timezone: string): string {
+  if (!utcTime) return '';
+  try {
+    const d = new Date(utcTime);
+    return d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone,
+    });
+  } catch {
+    return '';
+  }
+}
+
 // --- Types ---
 
 export interface FotMobMatch {
   id: number;
-  home: { name: string; id: number; score?: number; imageUrl?: string };
-  away: { name: string; id: number; score?: number; imageUrl?: string };
+  home: { name: string; id: number; score?: number; imageUrl?: string; shortName?: string };
+  away: { name: string; id: number; score?: number; imageUrl?: string; shortName?: string };
   status: {
+    utcTime?: string;
     started?: boolean;
     finished?: boolean;
     cancelled?: boolean;
+    ongoing?: boolean;
     scoreStr?: string;
     reason?: { short?: string; long?: string };
+    liveTime?: { short?: string };
   };
   time?: string;
   leagueId?: number;
   leagueName?: string;
+  group?: string;
+  round?: string;
 }
 
 export interface FotMobLeague {
@@ -56,6 +121,7 @@ export interface MatchDetailData {
       imageUrl?: string;
     }>;
     status: {
+      utcTime?: string;
       scoreStr?: string;
       reason?: { short?: string; long?: string };
       finished?: boolean;
