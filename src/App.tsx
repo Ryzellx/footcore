@@ -1,56 +1,65 @@
-import { useState } from 'react';
-import { Match } from './api';
-import MatchList from './components/MatchList';
-import MatchDetailView from './components/MatchDetailView';
-import { Footprints } from 'lucide-react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Home, Search } from 'lucide-react';
+import { S } from './styles';
+import HomePage from './pages/HomePage';
+import MatchPage from './pages/MatchPage';
+import ClubPage from './pages/ClubPage';
+import PlayerPage from './pages/PlayerPage';
+import SearchPage from './pages/SearchPage';
 
-function App() {
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+export default function App() {
+  const location = useLocation();
+  const path = location.pathname;
 
   return (
-    <div className="min-h-screen bg-primary">
+    <div style={S.root}>
       {/* Header */}
-      <header className="header-gradient sticky top-0 z-50 backdrop-blur-xl">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center">
-              <Footprints size={18} className="text-accent" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-primary tracking-tight">Footcore</h1>
-              <p className="text-[10px] text-muted -mt-0.5">Live Football</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-live" />
-              <span className="text-muted">your API</span>
-            </div>
-          </div>
+      <header style={S.header}>
+        <div style={S.headerInner}>
+          <Link to="/" style={S.logo}>
+            <span style={S.logoText}>
+              Foot<span style={S.logoAccent}>core</span>
+            </span>
+          </Link>
         </div>
       </header>
 
-      {/* Main */}
-      <main className="max-w-3xl mx-auto px-4 py-5">
-        {selectedMatch ? (
-          <MatchDetailView
-            match={selectedMatch}
-            onBack={() => setSelectedMatch(null)}
-          />
-        ) : (
-          <MatchList />
-        )}
+      {/* Main content */}
+      <main style={{ ...S.container, ...S.mainContent }}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/match/:id" element={<MatchPage />} />
+          <Route path="/club/:id" element={<ClubPage />} />
+          <Route path="/player/:id" element={<PlayerPage />} />
+          <Route path="/search" element={<SearchPage />} />
+        </Routes>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border mt-8">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between text-[10px] text-muted">
-          <span>Footcore — Football Live Scores</span>
-          <span>data from your API</span>
+      {/* Bottom navigation */}
+      <nav style={S.bottomNav}>
+        <div style={S.bottomNavInner}>
+          <Link
+            to="/"
+            style={{
+              ...S.navItem,
+              ...(path === '/' ? S.navItemActive : {}),
+            }}
+          >
+            <Home size={22} />
+            <span>Home</span>
+          </Link>
+          <Link
+            to="/search"
+            style={{
+              ...S.navItem,
+              ...(path === '/search' ? S.navItemActive : {}),
+            }}
+          >
+            <Search size={22} />
+            <span>Search</span>
+          </Link>
         </div>
-      </footer>
+      </nav>
     </div>
   );
 }
-
-export default App;
