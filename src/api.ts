@@ -122,11 +122,13 @@ export interface MatchDetailData {
     }>;
     status: {
       utcTime?: string;
+      started?: boolean;
+      finished?: boolean;
+      cancelled?: boolean;
+      ongoing?: boolean;
       scoreStr?: string;
       reason?: { short?: string; long?: string };
-      finished?: boolean;
-      started?: boolean;
-      cancelled?: boolean;
+      liveTime?: { short?: string };
     };
   };
   content?: {
