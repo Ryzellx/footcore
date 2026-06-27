@@ -111,7 +111,7 @@ export interface MatchDetailData {
   general?: {
     matchId: number;
     matchName: string;
-    teamColors?: { home?: { primary?: string }; away?: { primary?: string } };
+    teamColors?: { darkMode?: { home?: string[]; away?: string[] }; lightMode?: { home?: string[]; away?: string[] } };
   };
   header?: {
     teams: Array<{
@@ -133,56 +133,124 @@ export interface MatchDetailData {
   };
   content?: {
     matchFacts?: {
-      events?: { incidents?: any[] };
+      events?: Array<{
+        timeStr?: number;
+        type?: string;
+        time?: number;
+        overloadTime?: any;
+        player?: { id: number; name: string; profileUrl: string };
+        homeScore?: number | null;
+        awayScore?: number | null;
+        isHome?: boolean;
+        swap?: any[];
+        reason?: { short?: string; long?: string };
+        assist?: { player?: { name: string } };
+        incidentType?: string;
+        text?: string;
+      }>;
+      eventTypes?: string[];
+      penaltyShootoutEvents?: any;
       infoBox?: {
-        Tournament?: { name?: string; id?: number; logo?: string };
-        Stadium?: { name?: string };
-        Referee?: { name?: string; country?: string };
-        Attendance?: number;
+        tournament?: { id?: number; parentLeagueId?: number; link?: string; leagueName?: string; roundName?: string; round?: string };
+        stadium?: { name?: string; city?: string; country?: string; lat?: number; long?: number; capacity?: number; surface?: string };
+        referee?: { text?: string; countryCode?: string; country?: string };
+        attendance?: number;
+        teamForm?: { home?: string[]; away?: string[] };
+        poll?: any;
+        topPlayers?: any;
+        insights?: any;
+        postReview?: any;
       };
-      playerOfTheMatch?: { id?: number; name?: string; teamName?: string; rating?: { num?: number; bgcolor?: string }; imageUrl?: string };
-    };
-    stats?: {
-      Periods?: {
-        All?: {
-          stats: Array<{
-            title: string;
-            key: string;
-            home: string | number;
-            away: string | number;
-          }>;
-        };
+      playerOfTheMatch?: {
+        id?: number;
+        name?: { firstName?: string; lastName?: string; fullName?: string };
+        teamName?: string;
+        teamId?: number;
+        rating?: { num?: string; isTop?: { isTopRating: boolean; isMatchFinished: boolean }; bgcolor?: string };
+        minutesPlayed?: number;
+        shotmap?: any[];
+        pageUrl?: string;
+        isHomeTeam?: boolean;
+        stats?: any[];
+        role?: string;
+        teamData?: { home: { id: number; color: string }; away: { id: number; color: string } };
       };
     };
+    playerStats?: Record<string, { name: string; teamName?: string; stats?: any[] }>;
+    stats?: Array<{
+      title: string;
+      key: string;
+      home: string | number;
+      away: string | number;
+      format?: string;
+      highlighted?: any;
+    }>;
     lineup?: {
-      homeTeam?: { formation: string; startingXI?: any[]; subs?: any[] };
-      awayTeam?: { formation: string; startingXI?: any[]; subs?: any[] };
+      homeTeam?: {
+        id?: number;
+        name?: string;
+        rating?: number;
+        formation?: string;
+        starters?: Array<{
+          id: number;
+          age?: number;
+          name: string;
+          positionId?: number;
+          shirtNumber?: string;
+          countryName?: string;
+          countryCode?: string;
+          marketValue?: number;
+          x?: number;
+          y?: number;
+          rating?: number;
+          firstName?: string;
+          lastName?: string;
+          substitutionEvents?: any[];
+        }>;
+        substitutes?: any[];
+        coach?: { name: string } | any[];
+        averageStarterAge?: number;
+        totalStarterMarketValue?: number;
+      };
+      awayTeam?: {
+        id?: number;
+        name?: string;
+        rating?: number;
+        formation?: string;
+        starters?: any[];
+        substitutes?: any[];
+        coach?: any;
+      };
     };
     shotmap?: {
       shots?: Array<{
+        id?: number;
+        eventType?: string;
+        teamId?: number;
+        playerId?: number;
         playerName?: string;
         x?: number;
         y?: number;
         min?: number;
-        expectedGoals?: number;
+        addedMin?: number;
+        isBlocked?: boolean;
         isOnTarget?: boolean;
+        blockedX?: number;
+        blockedY?: number;
+        goalCrossed?: boolean;
+        expectedGoals?: number;
+        expectedGoalsOnTarget?: number;
         shotType?: string;
-        eventType?: string;
-        teamId?: number;
+        situation?: string;
+        period?: string;
+        isOwnGoal?: boolean;
+        onGoalShot?: any;
       }>;
     };
     h2h?: {
       summary?: [number, number, number];
-      matches?: Array<{
-        id?: number;
-        home?: { name: string; score?: number };
-        away?: { name: string; score?: number };
-        status?: { finished?: boolean; scoreStr?: string };
-        time?: string;
-        league?: { name?: string };
-      }>;
+      matches?: any[];
     };
-    playerStats?: Record<string, { name: string; teamName?: string; stats?: any[] }>;
     momentum?: { main?: { data?: Array<{ minute: number; value: number }> } };
     table?: any;
   };

@@ -63,14 +63,16 @@ export default function MatchPage() {
   const statusType = getMatchStatusFromHeader(header.status);
   const scoreStr = getMatchScoreStrFromHeader(header.status);
   const infoBox = detail.content?.matchFacts?.infoBox;
-  const events = detail.content?.matchFacts?.events?.incidents || [];
-  const statsData = detail.content?.stats?.Periods?.All?.stats || [];
+  const events = detail.content?.matchFacts?.events || [];
+  const eventTypes = detail.content?.matchFacts?.eventTypes || [];
+  const statsData = detail.content?.stats || [];
   const lineup = detail.content?.lineup;
+  const shotmap = detail.content?.shotmap?.shots || [];
   const h2h = detail.content?.h2h;
   const potm = detail.content?.matchFacts?.playerOfTheMatch;
-  const shotmap = detail.content?.shotmap?.shots || [];
   const playerStats = detail.content?.playerStats || {};
   const momentum = detail.content?.momentum;
+  const table = detail.content?.table;
   const timezone = getStoredTimezone();
 
   const tabs: { id: Tab; label: string }[] = [
@@ -106,9 +108,9 @@ export default function MatchPage() {
         borderBottom: '1px solid #333',
       }}>
         {/* League name */}
-        {infoBox?.Tournament?.name && (
+        {infoBox?.tournament?.leagueName && (
           <div style={{ fontSize: 12, color: '#666', marginBottom: 16, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            {infoBox.Tournament.name}
+            {infoBox.tournament.leagueName} - {infoBox.tournament.roundName ? `Matchday ${infoBox.tournament.roundName}` : ''}
           </div>
         )}
 
@@ -206,18 +208,10 @@ export default function MatchPage() {
 
       {/* Tab content */}
       <div style={{ padding: '16px 0' }}>
-        {tab === 'facts' && (
-          <FactsTab
-            infoBox={infoBox} potm={potm} homeTeam={homeTeam} awayTeam={awayTeam}
-            timezone={timezone} h2h={h2h} playerStats={playerStats} header={header}
-            detail={detail}
-          />
-        )}
-        {tab === 'live' && (
-          <LiveTab events={events} momentum={momentum} playerStats={playerStats} shotmap={shotmap} homeTeam={homeTeam} awayTeam={awayTeam} />
-        )}
+        {tab === 'facts' && <FactsTab infoBox={infoBox} potm={potm} homeTeam={homeTeam} awayTeam={awayTeam} timezone={timezone} header={header} detail={detail} events={events} />}
+        {tab === 'live' && <LiveTab events={events} eventTypes={eventTypes} momentum={momentum} playerStats={playerStats} shotmap={shotmap} homeTeam={homeTeam} awayTeam={awayTeam} />}
         {tab === 'lineup' && <LineupTab lineup={lineup} homeTeam={homeTeam} awayTeam={awayTeam} />}
-        {tab === 'table' && <TableTab h2h={h2h} detail={detail} homeTeam={homeTeam} awayTeam={awayTeam} />}
+        {tab === 'table' && <TableTab table={table} homeTeam={homeTeam} awayTeam={awayTeam} />}
         {tab === 'stats' && <StatsTab stats={statsData} playerStats={playerStats} />}
       </div>
     </div>
@@ -227,30 +221,24 @@ export default function MatchPage() {
 /* ============================================================
    TAB 1: FAKTA (FACTS / OVERVIEW)
    ============================================================ */
-function FactsTab({ infoBox, potm, homeTeam, awayTeam, timezone, h2h, playerStats, header, detail }: {
+function FactsTab({ infoBox, potm, homeTeam, awayTeam, timezone, header, detail, events }: {
   infoBox: any; potm: any; homeTeam: any; awayTeam: any; timezone: string;
-  h2h: any; playerStats: Record<string, any>; header: any; detail: any;
+  header: any; detail: any; events: any[];
 }) {
-  // Find highest rated player from playerStats
-  let topPlayer: any = null;
-  let topRating = 0;
-  Object.values(playerStats || {}).forEach((ps: any) => {
-    if (ps?.stats) {
-      ps.stats.forEach((s: any) => {
-        if (s.key === 'rating' || s.title?.toLowerCase().includes('rating')) {
-          const val = typeof s.stats?.[s.stats?.length - 1] === 'number' ? s.stats[s.stats.length - 1] : parseFloat(s.stats?.[s.stats?.length - 1]) || 0;
-          if (val > topRating) {
-            topRating = val;
-            topPlayer = { name: ps.name, teamName: ps.teamName, rating: val, id: ps.id };
-          }
-        }
-      });
-    }
-  });
-
   // Format date/time
   const matchTime = header?.status?.utcTime ? formatMatchTime(header.status.utcTime, timezone) : '';
   const matchDate = header?.status?.utcTime ? new Date(header.status.utcTime).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: timezone }) : '';
+
+  // Get match facts from events: missed shots, corners, fouls, offsides, saves
+  const matchEvents = events || [];
+  const missedShots = matchEvents.filter((e: any) => e.type === 'Goal' && e.swap?.some?.((s: any) => s.type === 'MissedShot'));
+  const corners = matchEvents.filter((e: any) => e.type === 'Corner');
+  const fouls = matchEvents.filter((e: any) => e.type === 'Foul');
+  const offsides = matchEvents.filter((e: any) => e.type === 'Offside');
+  const saves = matchEvents.filter((e: any) => e.type === 'Save');
+
+  // Team form from infoBox.teamForm or h2h
+  const teamForm = infoBox?.teamForm;
 
   return (
     <div>
@@ -269,7 +257,9 @@ function FactsTab({ infoBox, potm, homeTeam, awayTeam, timezone, h2h, playerStat
             <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
               Pemain Terbaik
             </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginTop: 4 }}>{potm.name}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginTop: 4 }}>
+              {potm.name?.fullName || potm.name?.firstName || potm.name?.lastName || potm.name}
+            </div>
             {potm.teamName && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{potm.teamName}</div>}
           </div>
           {potm.rating?.num && (
@@ -294,108 +284,78 @@ function FactsTab({ infoBox, potm, homeTeam, awayTeam, timezone, h2h, playerStat
             </div>
           )}
           {/* Tournament */}
-          {infoBox.Tournament?.name && (
+          {infoBox.tournament?.leagueName && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #2A2A2A' }}>
               <span style={{ fontSize: 13, color: '#666' }}>Kompetisi</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{infoBox.Tournament.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+                {infoBox.tournament.leagueName}{infoBox.tournament.roundName ? ` - Matchday ${infoBox.tournament.roundName}` : ''}
+              </span>
             </div>
           )}
           {/* Stadium */}
-          {infoBox.Stadium?.name && (
+          {infoBox.stadium?.name && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #2A2A2A' }}>
               <span style={{ fontSize: 13, color: '#666' }}>Stadion</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{infoBox.Stadium.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+                {infoBox.stadium.name}{infoBox.stadium.city ? `, ${infoBox.stadium.city}` : ''}{infoBox.stadium.country ? `, ${infoBox.stadium.country}` : ''}
+              </span>
             </div>
           )}
           {/* Referee */}
-          {infoBox.Referee?.name && (
+          {infoBox.referee?.text && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #2A2A2A' }}>
               <span style={{ fontSize: 13, color: '#666' }}>Wasit</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
-                {infoBox.Referee.name}{infoBox.Referee.country ? ` (${infoBox.Referee.country})` : ''}
+                {infoBox.referee.text}{infoBox.referee.country ? ` (${infoBox.referee.country})` : ''}
               </span>
             </div>
           )}
           {/* Attendance */}
-          {infoBox.Attendance && (
+          {infoBox.attendance && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #2A2A2A' }}>
               <span style={{ fontSize: 13, color: '#666' }}>Penonton</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{Number(infoBox.Attendance).toLocaleString()}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{Number(infoBox.attendance).toLocaleString()}</span>
+            </div>
+          )}
+          {/* Weather - if available */}
+          {infoBox.weather && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px' }}>
+              <span style={{ fontSize: 13, color: '#666' }}>Cuaca</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+                {infoBox.weather}
+              </span>
             </div>
           )}
         </div>
       )}
 
-      {/* Top Rated Player (from playerStats) */}
-      {topPlayer && topPlayer.rating > 0 && (
-        <div style={{
-          background: '#222', marginBottom: 1, padding: '16px',
-          display: 'flex', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: '#333', flexShrink: 0 }}>
-            {topPlayer.id && (
-              <img
-                src={playerPhotoUrl(topPlayer.id)}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Rating Tertinggi</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginTop: 2 }}>{topPlayer.name}</div>
-            {topPlayer.teamName && <div style={{ fontSize: 11, color: '#888' }}>{topPlayer.teamName}</div>}
-          </div>
-          <span style={{
-            background: topPlayer.rating >= 7 ? '#00D26A' : topPlayer.rating >= 6 ? '#F5A623' : '#666',
-            color: '#fff', padding: '4px 8px', borderRadius: 4, fontSize: 13, fontWeight: 800,
-          }}>
-            {topPlayer.rating.toFixed(1)}
-          </span>
+      {/* Match Facts - miss shots, corners, fouls, etc */}
+      <div style={{ background: '#222', marginBottom: 1, padding: '16px' }}>
+        <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
+          Fakta Pertandingan
         </div>
-      )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          <StatBox label="Tembakan Melenceng" value={countEventType(events, 'MissedShot') || countEventType(events, 'Goal')} icon="🎯" />
+          <StatBox label="Corner" value={countEventType(events, 'Corner')} icon="🚩" />
+          <StatBox label="Pelanggaran" value={countEventType(events, 'Foul')} icon="⚠️" />
+          <StatBox label="Offside" value={countEventType(events, 'Offside')} icon="🚫" />
+          <StatBox label="Penyelamatan" value={countEventType(events, 'Save')} icon="🧤" />
+          <StatBox label="Kartu Kuning" value={countEventType(events, 'Yellow') || countEventType(events, 'Card')} icon="🟨" />
+          <StatBox label="Kartu Merah" value={countEventType(events, 'Red')} icon="🟥" />
+          <StatBox label="Pergantian" value={countEventType(events, 'Substitution')} icon="🔄" />
+        </div>
+      </div>
 
-      {/* H2H Summary */}
-      {h2h?.summary && (
+      {/* Team Form */}
+      {teamForm && (
         <div style={{ background: '#222', marginBottom: 1, padding: '16px' }}>
           <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, textAlign: 'center' }}>
-            Head to Head
+            Performa Tim
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 12 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#00D26A' }}>{h2h.summary[0]}</div>
-              <div style={{ fontSize: 11, color: '#666' }}>Menang</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#888' }}>{h2h.summary[1]}</div>
-              <div style={{ fontSize: 11, color: '#666' }}>Seri</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#FF4444' }}>{h2h.summary[2]}</div>
-              <div style={{ fontSize: 11, color: '#666' }}>Kalah</div>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
+            <TeamForm team={homeTeam} form={teamForm.home} />
+            <TeamForm team={awayTeam} form={teamForm.away} />
           </div>
-          {/* Recent meetings */}
-          {h2h.matches && h2h.matches.length > 0 && (
-            <div>
-              {h2h.matches.slice(0, 5).map((m: any, i: number) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', padding: '8px 0',
-                  borderBottom: i < Math.min(h2h.matches.length, 5) - 1 ? '1px solid #2A2A2A' : 'none',
-                }}>
-                  <div style={{ flex: 1, textAlign: 'right', fontSize: 12, color: '#fff' }}>{m.home?.name || ''}</div>
-                  <div style={{ minWidth: 60, textAlign: 'center', fontWeight: 800, fontSize: 13, color: '#fff' }}>
-                    {m.status?.scoreStr || `${m.home?.score ?? '?'} - ${m.away?.score ?? '?'}`}
-                  </div>
-                  <div style={{ flex: 1, textAlign: 'left', fontSize: 12, color: '#fff' }}>{m.away?.name || ''}</div>
-                  <div style={{ fontSize: 10, color: '#666', marginLeft: 8, whiteSpace: 'nowrap' }}>
-                    {m.time ? new Date(m.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -424,11 +384,56 @@ function FactsTab({ infoBox, potm, homeTeam, awayTeam, timezone, h2h, playerStat
   );
 }
 
+function StatBox({ label, value, icon }: { label: string; value: number; icon: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px', background: '#1A1A1A', borderRadius: 4 }}>
+      <span style={{ fontSize: 20 }}>{icon}</span>
+      <span style={{ fontSize: 18, fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span style={{ fontSize: 10, color: '#666', textAlign: 'center' }}>{label}</span>
+    </div>
+  );
+}
+
+function TeamForm({ team, form }: { team: any; form: any }) {
+  if (!form || !Array.isArray(form)) return null;
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <img src={teamLogoUrl(team.id)} alt="" style={{ width: 32, height: 32, objectFit: 'contain', marginBottom: 8 }} />
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', marginBottom: 8 }}>{team.name}</div>
+      <div style={{ display: 'flex', gap: 2 }}>
+        {form.slice(-5).map((f: any, i: number) => {
+          const result = typeof f === 'string' ? f : f?.result || f?.outcome || '';
+          const bg = result === 'W' ? '#00D26A' : result === 'D' ? '#666' : result === 'L' ? '#FF4444' : '#333';
+          return (
+            <span key={i} style={{
+              display: 'inline-block', width: 20, height: 20, fontSize: 9, fontWeight: 700,
+              background: bg, color: '#fff', textAlign: 'center', lineHeight: '20px', borderRadius: 2,
+            }}>
+              {result}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function countEventType(events: any[], type: string): number {
+  return events.filter((e: any) => {
+    const et = e.type || '';
+    if (type === 'MissedShot') return et === 'Goal' && e.swap?.some?.((s: any) => s.type === 'MissedShot');
+    if (type === 'Card') return et === 'Card';
+    if (type === 'Yellow') return et === 'Yellow';
+    if (type === 'Red') return et === 'Red';
+    return et === type;
+  }).length;
+}
+
 /* ============================================================
    TAB 2: LANGSUNG (LIVE / EVENTS)
    ============================================================ */
-function LiveTab({ events, momentum, playerStats, shotmap, homeTeam, awayTeam }: {
-  events: any[]; momentum: any; playerStats: Record<string, any>; shotmap: any[];
+function LiveTab({ events, eventTypes, momentum, playerStats, shotmap, homeTeam, awayTeam }: {
+  events: any[]; eventTypes: string[]; momentum: any; playerStats: Record<string, any>; shotmap: any[];
   homeTeam: any; awayTeam: any;
 }) {
   return (
@@ -452,20 +457,21 @@ function LiveTab({ events, momentum, playerStats, shotmap, homeTeam, awayTeam }:
           {events.map((evt: any, i: number) => {
             const isHome = evt.isHome;
             const evtType = evt.type || '';
-            const isGoal = evtType === 'goal';
-            const isYellow = evtType === 'yellowcard';
-            const isRed = evtType === 'redcard';
-            const isSub = evtType === 'substitution';
-            const isVar = evtType === 'varDecision' || evtType === 'var';
-            const isPenalty = evtType === 'penalty';
-            const isOwnGoal = evtType === 'ownGoal';
-            const isInjury = evtType === 'injury';
-            const isPeriod = evtType === 'period';
+            const isGoal = evtType === 'Goal';
+            const isCard = evtType === 'Card';
+            const isYellow = evtType === 'Yellow';
+            const isRed = evtType === 'Red';
+            const isSub = evtType === 'Substitution';
+            const isVar = evtType === 'VAR' || evtType === 'varDecision';
+            const isPenalty = evtType === 'Penalty';
+            const isOwnGoal = evtType === 'OwnGoal';
+            const isInjury = evtType === 'Injuries';
+            const isPeriod = evtType === 'Half' || evtType === 'AddedTime';
 
             let icon = '📌';
             let label = '';
             if (isGoal) { icon = '⚽'; label = 'Gol'; }
-            else if (isYellow) { icon = '🟨'; label = 'Kartu Kuning'; }
+            else if (isCard || isYellow) { icon = '🟨'; label = 'Kartu Kuning'; }
             else if (isRed) { icon = '🟥'; label = 'Kartu Merah'; }
             else if (isSub) { icon = '🔄'; label = 'Pergantian'; }
             else if (isVar) { icon = '📺'; label = 'VAR'; }
@@ -476,13 +482,13 @@ function LiveTab({ events, momentum, playerStats, shotmap, homeTeam, awayTeam }:
 
             // For period events (kick-off, HT, FT) render differently
             if (isPeriod) {
-              const reasonStr = evt.reason?.short || evt.text || '';
+              const reasonStr = evt.reason?.short || evt.text || evt.swap?.[0]?.name || '';
               return (
                 <div key={i} style={{ textAlign: 'center', padding: '12px 0', position: 'relative' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#333', padding: '4px 14px', borderRadius: 12 }}>
                     <span style={{ fontSize: 12 }}>🏁</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#aaa' }}>
-                      {evt.time?.formatted || evt.minute || ''} {reasonStr}
+                      {evt.timeStr || evt.time || ''} {reasonStr}
                     </span>
                   </div>
                 </div>
@@ -500,7 +506,7 @@ function LiveTab({ events, momentum, playerStats, shotmap, homeTeam, awayTeam }:
                   fontSize: 12, fontWeight: 700, color: '#666', minWidth: 32,
                   textAlign: isHome ? 'left' : 'right',
                 }}>
-                  {evt.time?.formatted || (evt.minute ? `${evt.minute}'` : '')}
+                  {evt.timeStr || (evt.time ? `${evt.time}'` : '')}
                 </span>
 
                 {/* Icon */}
@@ -509,16 +515,16 @@ function LiveTab({ events, momentum, playerStats, shotmap, homeTeam, awayTeam }:
                 {/* Player info */}
                 <div style={{ flex: 1, textAlign: isHome ? 'left' : 'right' }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
-                    {evt.player?.name || ''}
+                    {evt.player?.name || evt.swap?.[0]?.name || ''}
                   </div>
                   {evt.assist?.player?.name && (
                     <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
                       🅰️ {evt.assist.player.name}
                     </div>
                   )}
-                  {isSub && evt.assist?.player?.name && (
+                  {isSub && evt.swap && (
                     <div style={{ fontSize: 11, color: '#FF4444', marginTop: 2 }}>
-                      ↓ {evt.assist.player.name}
+                      ↓ {evt.swap[0]?.name || ''}
                     </div>
                   )}
                   {isVar && evt.incidentType && (
@@ -596,7 +602,6 @@ function MomentumChart({ data }: { data: any[] }) {
 function ShotmapChart({ shots, homeTeam, awayTeam }: { shots: any[]; homeTeam: any; awayTeam: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {/* Simple list view of shots */}
       {shots.map((shot: any, i: number) => {
         const isHome = shot.teamId === homeTeam.id;
         const isGoal = shot.eventType === 'Goal';
@@ -687,35 +692,33 @@ function LineupTab({ lineup, homeTeam, awayTeam }: { lineup: any; homeTeam: any;
 
   const renderTeam = (team: any, teamInfo: any, isHome: boolean) => {
     if (!team) return null;
-    const players = team.startingXI || [];
-    const subs = team.subs || [];
+    const players = team.starters || [];
+    const subs = team.substitutes || [];
     const coach = team.coach;
     const formation = team.formation || '';
 
-    // Group players by position
+    // Group players by positionId
+    // positionId mapping: 11=GK, 32-36=DEF, 22-26=MID, 42-46=FWD
     const goalkeepers: any[] = [];
     const defenders: any[] = [];
     const midfielders: any[] = [];
     const forwards: any[] = [];
 
     players.forEach((p: any) => {
-      const player = p.player || p;
-      const posId = player.positionId || p.positionId || 0;
-      // positionId: 1=GK, 2=DEF, 3=MID, 4=FWD (approximate)
-      if (posId === 1) goalkeepers.push(p);
-      else if (posId === 2) defenders.push(p);
-      else if (posId === 3) midfielders.push(p);
-      else if (posId === 4) forwards.push(p);
+      const posId = p.positionId || 0;
+      if (posId === 11) goalkeepers.push(p);
+      else if (posId >= 32 && posId <= 36) defenders.push(p);
+      else if (posId >= 22 && posId <= 26) midfielders.push(p);
+      else if (posId >= 42 && posId <= 46) forwards.push(p);
       else midfielders.push(p); // default
     });
 
     const renderPlayer = (p: any, idx: number) => {
-      const player = p.player || p;
-      const pid = player.id || p.id;
-      const name = player.name || p.name || '';
-      const shirt = player.jerseyNumber || p.shirtNumber || '';
-      const isCaptain = p.captain;
-      const rating = p.performance?.rating || player.rating || null;
+      const pid = p.id;
+      const name = p.name;
+      const shirt = p.shirtNumber;
+      const isCaptain = p.isCaptain; // might not exist in lineup data
+      const rating = p.rating;
 
       return (
         <div key={idx} style={{
@@ -814,8 +817,7 @@ function LineupTab({ lineup, homeTeam, awayTeam }: { lineup: any; homeTeam: any;
               Cadangan
             </div>
             {subs.map((p: any, i: number) => {
-              const player = p.player || p;
-              const pid = player.id || p.id;
+              const pid = p.id;
               return (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
@@ -832,9 +834,9 @@ function LineupTab({ lineup, homeTeam, awayTeam }: { lineup: any; homeTeam: any;
                     )}
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#666', minWidth: 18 }}>
-                    {player.jerseyNumber || p.shirtNumber || ''}
+                    {p.shirtNumber || ''}
                   </span>
-                  <span style={{ fontSize: 12, color: '#888' }}>{player.name || p.name || ''}</span>
+                  <span style={{ fontSize: 12, color: '#888' }}>{p.name || ''}</span>
                 </div>
               );
             })}
@@ -850,7 +852,7 @@ function LineupTab({ lineup, homeTeam, awayTeam }: { lineup: any; homeTeam: any;
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ fontSize: 14, color: '#fff' }}>👤</div>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
-                {(coach as any)?.name || (coach as any)?.[0]?.name || String(coach)}
+                {coach.name || coach[0]?.name || String(coach)}
               </span>
             </div>
           </div>
@@ -873,313 +875,228 @@ function LineupTab({ lineup, homeTeam, awayTeam }: { lineup: any; homeTeam: any;
 /* ============================================================
    TAB 4: TABEL (TABLE / STANDINGS)
    ============================================================ */
-function TableTab({ h2h, detail, homeTeam, awayTeam }: {
-  h2h: any; detail: any; homeTeam: any; awayTeam: any;
-}) {
-  // Try to get standings/table from content
-  const tableData = (detail as any)?.content?.table;
-  const standings = tableData?.[0]?.data?.allMatches || tableData?.[0]?.data?.tables?.[0]?.data?.allMatches || tableData || null;
-  const tableRows = Array.isArray(standings) ? standings : null;
+function TableTab({ table, homeTeam, awayTeam }: { table: any; homeTeam: any; awayTeam: any }) {
+  // Table data structure from API: { leagueId, url, teams: [teamIds], tournamentNameForUrl, parentLeagueId, countryCode }
+  // For full standings, we'd need to fetch the table from the URL
+  // For now, show what we have
+
+  if (!table) {
+    return (
+      <div style={{ background: '#222', padding: '40px 20px', textAlign: 'center', color: '#666', fontSize: 13 }}>
+        Data klasemen tidak tersedia
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* Standings Table */}
-      {tableRows && tableRows.length > 0 ? (
-        <div style={{ background: '#222', overflowX: 'auto' }}>
-          <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, padding: '16px 16px 8px' }}>
-            Klasemen
-          </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #333' }}>
-                <th style={{ textAlign: 'left', padding: '10px 8px', color: '#666', fontWeight: 700, fontSize: 11 }}>#</th>
-                <th style={{ textAlign: 'left', padding: '10px 8px', color: '#666', fontWeight: 700, fontSize: 11 }}>Tim</th>
-                <th style={{ textAlign: 'center', padding: '10px 6px', color: '#666', fontWeight: 700, fontSize: 11 }}>M</th>
-                <th style={{ textAlign: 'center', padding: '10px 6px', color: '#666', fontWeight: 700, fontSize: 11 }}>M</th>
-                <th style={{ textAlign: 'center', padding: '10px 6px', color: '#666', fontWeight: 700, fontSize: 11 }}>S</th>
-                <th style={{ textAlign: 'center', padding: '10px 6px', color: '#666', fontWeight: 700, fontSize: 11 }}>K</th>
-                <th style={{ textAlign: 'center', padding: '10px 6px', color: '#666', fontWeight: 700, fontSize: 11 }}>GM</th>
-                <th style={{ textAlign: 'center', padding: '10px 6px', color: '#666', fontWeight: 700, fontSize: 11 }}>GK</th>
-                <th style={{ textAlign: 'center', padding: '10px 6px', color: '#666', fontWeight: 700, fontSize: 11 }}>SG</th>
-                <th style={{ textAlign: 'center', padding: '10px 6px', color: '#666', fontWeight: 700, fontSize: 11 }}>Poin</th>
-                <th style={{ textAlign: 'center', padding: '10px 8px', color: '#666', fontWeight: 700, fontSize: 11 }}>Form</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((row: any, i: number) => {
-                const team = row.team || row;
-                const tid = team.id || 0;
-                const isCurrent = tid === homeTeam.id || tid === awayTeam.id;
-                const posColor = row.qualColor || '';
-                const played = row.played ?? row.matches ?? 0;
-                const wins = row.wins ?? 0;
-                const draws = row.draws ?? 0;
-                const losses = row.losses ?? 0;
-                const gf = row.scoresFor ?? row.gf ?? 0;
-                const ga = row.scoresAgainst ?? row.ga ?? 0;
-                const gd = row.goalConDiff ?? row.gd ?? (gf - ga);
-                const pts = row.points ?? row.pts ?? 0;
-                const formArr = row.form || row.recentForm || [];
-
-                return (
-                  <tr key={i} style={{
-                    borderBottom: '1px solid #2A2A2A',
-                    background: isCurrent ? 'rgba(0,210,106,0.08)' : 'transparent',
-                  }}>
-                    <td style={{ padding: '10px 8px', color: isCurrent ? '#00D26A' : '#888', fontWeight: isCurrent ? 700 : 500 }}>
-                      {row.idx !== undefined ? row.idx + 1 : i + 1}
-                    </td>
-                    <td style={{ padding: '10px 8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <img
-                          src={teamLogoUrl(tid)}
-                          alt=""
-                          style={{ width: 18, height: 18, objectFit: 'contain' }}
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                        <span style={{ fontWeight: isCurrent ? 700 : 500, color: isCurrent ? '#00D26A' : '#fff' }}>
-                          {team.name || team.shortName || ''}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px', color: '#888' }}>{played}</td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px', color: '#888' }}>{wins}</td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px', color: '#888' }}>{draws}</td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px', color: '#888' }}>{losses}</td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px', color: '#888' }}>{gf}</td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px', color: '#888' }}>{ga}</td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px', color: gd > 0 ? '#00D26A' : gd < 0 ? '#FF4444' : '#888', fontWeight: 600 }}>{gd > 0 ? `+${gd}` : gd}</td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px', color: '#fff', fontWeight: 800 }}>{pts}</td>
-                    <td style={{ textAlign: 'center', padding: '10px 8px' }}>
-                      <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-                        {Array.isArray(formArr) && formArr.slice(-5).map((f: any, fi: number) => {
-                          const result = typeof f === 'string' ? f : f?.result || '';
-                          const bg = result === 'W' ? '#00D26A' : result === 'D' ? '#666' : result === 'L' ? '#FF4444' : '#333';
-                          return (
-                            <span key={fi} style={{
-                              display: 'inline-block', width: 16, height: 16, fontSize: 9, fontWeight: 700,
-                              background: bg, color: '#fff', textAlign: 'center', lineHeight: '16px',
-                            }}>
-                              {result}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Standings Table - would need separate fetch for full table */}
+      <div style={{ background: '#222', padding: '16px' }}>
+        <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+          Klasemen Grup
         </div>
-      ) : (
-        <div style={{ background: '#222', padding: '40px 20px', textAlign: 'center', color: '#666', fontSize: 13 }}>
-          Data klasemen tidak tersedia
+        <div style={{ fontSize: 13, color: '#888' }}>
+          Data klasemen lengkap memerlukan fetch terpisah.
         </div>
-      )}
+        <div style={{ marginTop: 12, display: 'flex', gap: 16 }}>
+          <TeamBadge team={homeTeam} />
+          <TeamBadge team={awayTeam} />
+        </div>
+      </div>
 
-      {/* H2H section */}
-      {h2h?.summary && (
-        <div style={{ background: '#222', marginTop: 1, padding: '16px' }}>
-          <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, textAlign: 'center' }}>
-            Head to Head
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 12 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#00D26A' }}>{h2h.summary[0]}</div>
-              <div style={{ fontSize: 11, color: '#666' }}>Menang</div>
+      {/* H2H section moved to its own area if needed */}
+    </div>
+  );
+}
+
+function TeamBadge({ team }: { team: any }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <img src={teamLogoUrl(team.id)} alt="" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+      <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{team.name}</span>
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB 5: STATISTIK (STATS)
+   ============================================================ */
+function StatsTab({ stats, playerStats }: { stats: any[]; playerStats: Record<string, any> }) {
+  if (!stats || stats.length === 0) {
+    return <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666' }}>Tidak ada statistik tersedia</div>;
+  }
+
+  // Group stats by category
+  const categories: Record<string, any[]> = {
+    'Team Stats': [],
+    'Passing': [],
+    'Defensive': [],
+    'Attacking': [],
+    'Goalkeeper': [],
+    'Other': [],
+  };
+
+  const categoryMap: Record<string, string> = {
+    'possession': 'Team Stats',
+    'ball possession': 'Team Stats',
+    'total shots': 'Team Stats',
+    'shots on target': 'Team Stats',
+    'shots off target': 'Team Stats',
+    'blocked shots': 'Team Stats',
+    'expected goals': 'Team Stats',
+    'xg': 'Team Stats',
+    'big chances': 'Team Stats',
+    'big chances missed': 'Team Stats',
+    'corners': 'Team Stats',
+    'offsides': 'Team Stats',
+    'fouls': 'Team Stats',
+    'yellow cards': 'Team Stats',
+    'red cards': 'Team Stats',
+    'saves': 'Team Stats',
+    'passes': 'Passing',
+    'accurate passes': 'Passing',
+    'pass accuracy': 'Passing',
+    'long balls': 'Passing',
+    'crosses': 'Passing',
+    'accurate crosses': 'Passing',
+    'throw-ins': 'Passing',
+    'goal kicks': 'Passing',
+    'free kicks': 'Passing',
+    'tackles': 'Defensive',
+    'interceptions': 'Defensive',
+    'clearances': 'Defensive',
+    'blocks': 'Defensive',
+    'recoveries': 'Defensive',
+    'duels won': 'Defensive',
+    'aerial duels won': 'Defensive',
+    'dribbles': 'Attacking',
+    'successful dribbles': 'Attacking',
+    'touches in opponent box': 'Attacking',
+    'chances created': 'Attacking',
+    'goalkeeper saves': 'Goalkeeper',
+    'punches': 'Goalkeeper',
+    'high claims': 'Goalkeeper',
+    'sweeper actions': 'Goalkeeper',
+    'save percentage': 'Goalkeeper',
+  };
+
+  stats.forEach((stat) => {
+    const cat = categoryMap[stat.title?.toLowerCase()] || 'Other';
+    categories[cat].push(stat);
+  });
+
+  return (
+    <div>
+      {Object.entries(categories).map(([categoryName, catStats]) => {
+        if (catStats.length === 0) return null;
+        return (
+          <div key={categoryName} style={{ background: '#222', marginBottom: 1 }}>
+            <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, padding: '16px 16px 8px' }}>
+              {categoryName}
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#888' }}>{h2h.summary[1]}</div>
-              <div style={{ fontSize: 11, color: '#666' }}>Seri</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#FF4444' }}>{h2h.summary[2]}</div>
-              <div style={{ fontSize: 11, color: '#666' }}>Kalah</div>
-            </div>
-          </div>
-          {h2h.matches && h2h.matches.length > 0 && (
-            <div>
-              {h2h.matches.map((m: any, i: number) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', padding: '10px 0',
-                  borderBottom: i < h2h.matches.length - 1 ? '1px solid #2A2A2A' : 'none',
-                }}>
-                  <div style={{ flex: 1, textAlign: 'right', fontSize: 12, color: '#fff' }}>{m.home?.name || ''}</div>
-                  <div style={{ minWidth: 60, textAlign: 'center', fontWeight: 800, fontSize: 13, color: '#fff' }}>
-                    {m.status?.scoreStr || `${m.home?.score ?? '?'} - ${m.away?.score ?? '?'}`}
+            {catStats.map((stat: any, i: number) => {
+              const homeVal = typeof stat.home === 'number' ? stat.home : parseFloat(stat.home) || 0;
+              const awayVal = typeof stat.away === 'number' ? stat.away : parseFloat(stat.away) || 0;
+              const total = homeVal + awayVal;
+              const homePct = total > 0 ? (homeVal / total) * 100 : 50;
+              const isPercentage = stat.format === 'percentage' || stat.title?.toLowerCase().includes('accuracy') || stat.title?.toLowerCase().includes('possession');
+
+              return (
+                <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid #2A2A2A' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: homeVal >= awayVal ? '#00D26A' : '#666', minWidth: 50, textAlign: 'left' }}>
+                      {isPercentage ? `${homeVal}%` : homeVal}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#888', textAlign: 'center', flex: 1 }}>{stat.title}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: awayVal >= homeVal ? '#00D26A' : '#666', minWidth: 50, textAlign: 'right' }}>
+                      {isPercentage ? `${awayVal}%` : awayVal}
+                    </span>
                   </div>
-                  <div style={{ flex: 1, textAlign: 'left', fontSize: 12, color: '#fff' }}>{m.away?.name || ''}</div>
-                  <div style={{ fontSize: 10, color: '#666', marginLeft: 8, whiteSpace: 'nowrap' }}>
-                    {m.time ? new Date(m.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                  <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', background: '#1A1A1A' }}>
+                    <div style={{ background: '#00D26A', width: `${homePct}%`, transition: 'width 0.3s ease' }} />
+                    <div style={{ background: '#555', width: `${100 - homePct}%`, transition: 'width 0.3s ease' }} />
                   </div>
-                  {m.league?.name && (
-                    <div style={{ fontSize: 9, color: '#555', marginLeft: 8, whiteSpace: 'nowrap' }}>{m.league.name}</div>
-                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
+        );
+      })}
+
+      {/* Player Stats Table */}
+      {Object.keys(playerStats).length > 0 && (
+        <div style={{ background: '#222', marginTop: 1 }}>
+          <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, padding: '16px 16px 8px' }}>
+            Statistik Pemain
+          </div>
+          <PlayerStatsTable playerStats={playerStats} />
         </div>
       )}
     </div>
   );
 }
 
-/* ============================================================
-   TAB 5: STATISTIK (STATISTICS)
-   ============================================================ */
-function StatsTab({ stats, playerStats }: { stats: any[]; playerStats: Record<string, any> }) {
-  if ((!stats || stats.length === 0) && Object.keys(playerStats).length === 0) {
-    return <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666' }}>Data statistik tidak tersedia</div>;
+function PlayerStatsTable({ playerStats }: { playerStats: Record<string, any> }) {
+  // Flatten all player stats into rows
+  const allStats: Array<{ playerId: string; playerName: string; teamName: string; title: string; value: any }> = [];
+
+  Object.entries(playerStats).forEach(([pid, ps]: [string, any]) => {
+    if (ps?.stats) {
+      ps.stats.forEach((cat: any) => {
+        if (cat.stats) {
+          cat.stats.forEach((s: any) => {
+            if (s.stats && Array.isArray(s.stats) && s.stats.length >= 1) {
+              allStats.push({
+                playerId: pid,
+                playerName: ps.name || '',
+                teamName: ps.teamName || '',
+                title: `${cat.title} - ${s.title}`,
+                value: s.stats[0], // home team value (player's value)
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+
+  if (allStats.length === 0) {
+    return <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Tidak ada data statistik pemain</div>;
   }
 
-  // Group stats by category
-  const teamStatKeys = ['ballPossession', 'totalShots', 'shotsOnTarget', 'shotsOffTarget', 'blockedScoringAttempt', 'expectedGoals', 'bigChance', 'bigChanceMissed', 'corner', 'offside', 'foulGiven', 'yellowCard', 'redCard', 'saves'];
-  const passingStatKeys = ['accuratePass', 'totalPass', 'passAccuracy', 'accurateLongBall', 'accurateCross', 'totalCross', 'goalKick', 'freeKick', 'throwIn'];
-  const defensiveStatKeys = ['totalTackle', 'interceptionWon', 'clearanceTotal', 'outfielderBlock', 'ballRecovery', 'duelWon', 'aerialWon'];
-  const attackingStatKeys = ['dribble', 'dribbleWon', 'touchesInOppBox', 'chanceCreated'];
-  const gkStatKeys = ['saves', 'punches', 'highClaims', 'sweeper', 'savedShotsFromInsideTheBox'];
-
-  const categorize = (keys: string[]) => stats.filter((s) => keys.includes(s.key));
-
-  const teamStats = categorize(teamStatKeys);
-  const passingStats = categorize(passingStatKeys);
-  const defensiveStats = categorize(defensiveStatKeys);
-  const attackingStats = categorize(attackingStatKeys);
-  const gkStats = categorize(gkStatKeys);
-
-  // Stats not in any category
-  const allKnownKeys = [...teamStatKeys, ...passingStatKeys, ...defensiveStatKeys, ...attackingStatKeys, ...gkStatKeys];
-  const otherStats = stats.filter((s) => !allKnownKeys.includes(s.key));
-
-  const renderStatRow = (stat: any, idx: number) => {
-    const homeVal = typeof stat.home === 'number' ? stat.home : parseFloat(stat.home) || 0;
-    const awayVal = typeof stat.away === 'number' ? stat.away : parseFloat(stat.away) || 0;
-    const total = homeVal + awayVal;
-    const homePct = total > 0 ? (homeVal / total) * 100 : 50;
-    const isPercentage = stat.key === 'ballPossession' || stat.key === 'passAccuracy' || stat.title?.toLowerCase().includes('possession') || stat.title?.toLowerCase().includes('accuracy');
-
-    return (
-      <div key={idx} style={{ padding: '10px 0', borderBottom: '1px solid #2A2A2A' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{
-            fontSize: 13, fontWeight: 700, minWidth: 45, textAlign: 'left',
-            color: homeVal > awayVal ? '#00D26A' : homeVal === awayVal ? '#888' : '#666',
-          }}>
-            {isPercentage ? `${homeVal}%` : homeVal}
-          </span>
-          <span style={{ fontSize: 11, color: '#888', textAlign: 'center', flex: 1 }}>{stat.title}</span>
-          <span style={{
-            fontSize: 13, fontWeight: 700, minWidth: 45, textAlign: 'right',
-            color: awayVal > homeVal ? '#00D26A' : awayVal === homeVal ? '#888' : '#666',
-          }}>
-            {isPercentage ? `${awayVal}%` : awayVal}
-          </span>
-        </div>
-        <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', background: '#1A1A1A' }}>
-          <div style={{ background: '#00D26A', width: `${homePct}%`, transition: 'width 0.3s ease' }} />
-          <div style={{ background: '#555', width: `${100 - homePct}%`, transition: 'width 0.3s ease' }} />
-        </div>
-      </div>
-    );
-  };
-
-  const renderSection = (title: string, sectionStats: any[]) => {
-    if (sectionStats.length === 0) return null;
-    return (
-      <div style={{ background: '#222', marginBottom: 1, padding: '16px' }}>
-        <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-          {title}
-        </div>
-        {sectionStats.map((s, i) => renderStatRow(s, i))}
-      </div>
-    );
-  };
-
-  // Player stats table
-  const hasPlayerStats = Object.keys(playerStats).length > 0;
-  const playerStatHeaders: string[] = [];
-  const playerRows: Array<{ id: string; name: string; teamName: string; stats: Record<string, any> }> = [];
-
-  if (hasPlayerStats) {
-    Object.entries(playerStats).forEach(([pid, ps]: [string, any]) => {
-      if (ps?.stats && ps.stats.length > 0) {
-        const statMap: Record<string, any> = {};
-        ps.stats.forEach((s: any) => {
-          const key = s.key || s.title || '';
-          if (key && !playerStatHeaders.includes(s.title || key)) {
-            playerStatHeaders.push(s.title || key);
-          }
-          // Get the last value (or 'All' period value)
-          const vals = s.stats || [];
-          statMap[key] = vals.length > 0 ? vals[vals.length - 1] : '-';
-        });
-        playerRows.push({ id: pid, name: ps.name, teamName: ps.teamName || '', stats: statMap });
-      }
-    });
-  }
-
+  // Show top stats
   return (
-    <div>
-      {/* Team Stats Sections */}
-      {renderSection('Statistik Tim', teamStats)}
-      {renderSection('Passing', passingStats)}
-      {renderSection('Pertahanan', defensiveStats)}
-      {renderSection('Serangan', attackingStats)}
-      {renderSection('Penjaga Gawang', gkStats)}
-      {renderSection('Lainnya', otherStats)}
-
-      {/* Player Stats Table */}
-      {hasPlayerStats && playerRows.length > 0 && (
-        <div style={{ background: '#222', marginTop: 1, padding: '16px', overflowX: 'auto' }}>
-          <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-            Statistik Pemain
-          </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #333' }}>
-                <th style={{ textAlign: 'left', padding: '8px 6px', color: '#666', fontWeight: 700, fontSize: 10, position: 'sticky', left: 0, background: '#222' }}>Pemain</th>
-                {playerStatHeaders.slice(0, 8).map((h, i) => (
-                  <th key={i} style={{ textAlign: 'center', padding: '8px 6px', color: '#666', fontWeight: 700, fontSize: 10, whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {playerRows.slice(0, 30).map((pr, ri) => (
-                <tr key={ri} style={{ borderBottom: '1px solid #2A2A2A' }}>
-                  <td style={{ padding: '8px 6px', position: 'sticky', left: 0, background: '#222', zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <img
-                        src={playerPhotoUrl(parseInt(pr.id))}
-                        alt=""
-                        style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', background: '#333' }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap' }}>{pr.name}</div>
-                        <div style={{ fontSize: 9, color: '#666' }}>{pr.teamName}</div>
-                      </div>
-                    </div>
-                  </td>
-                  {playerStatHeaders.slice(0, 8).map((h, hi) => {
-                    // Find matching stat key
-                    let val: any = '-';
-                    Object.entries(pr.stats).forEach(([key, v]) => {
-                      if (key === h || key.toLowerCase() === h.toLowerCase()) val = v;
-                    });
-                    return (
-                      <td key={hi} style={{ textAlign: 'center', padding: '8px 6px', color: '#888', fontSize: 11 }}>
-                        {val !== null && val !== undefined ? String(val) : '-'}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #333' }}>
+            <th style={{ textAlign: 'left', padding: '8px 12px', color: '#666', fontWeight: 700 }}>Pemain</th>
+            <th style={{ textAlign: 'left', padding: '8px 12px', color: '#666', fontWeight: 700 }}>Tim</th>
+            <th style={{ textAlign: 'left', padding: '8px 12px', color: '#666', fontWeight: 700 }}>Stat</th>
+            <th style={{ textAlign: 'center', padding: '8px 12px', color: '#666', fontWeight: 700 }}>Nilai</th>
+          </tr>
+        </thead>
+        <tbody>
+          {allStats.slice(0, 50).map((row, i) => (
+            <tr key={i} style={{ borderBottom: '1px solid #2A2A2A' }}>
+              <td style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <img
+                  src={playerPhotoUrl(parseInt(row.playerId))}
+                  alt=""
+                  style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <span style={{ fontSize: 12, color: '#fff' }}>{row.playerName}</span>
+              </td>
+              <td style={{ padding: '8px 12px', color: '#888', fontSize: 11 }}>{row.teamName}</td>
+              <td style={{ padding: '8px 12px', color: '#fff', fontSize: 11 }}>{row.title}</td>
+              <td style={{ padding: '8px 12px', textAlign: 'center', color: '#00D26A', fontWeight: 700, fontSize: 12 }}>
+                {row.value}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
