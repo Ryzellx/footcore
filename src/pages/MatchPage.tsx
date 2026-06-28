@@ -479,67 +479,100 @@ function LineupTab({ detail }: { detail: MatchDetailData }) {
             <rect x="120" y="390" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
           </svg>
 
-          {/* Players on pitch */}
-          {starters.map((p: any, i: number) => {
-            const player = p.player || p;
-            const py = (p.x ?? player.x ?? 0.5) * 100; // x = along pitch length → vertical (top)
-            const px = (p.y ?? player.y ?? 0.5) * 100; // y = across pitch width → horizontal (left)
-            const rating = p.performance?.rating || player.rating;
-            const ratingNum = parseFloat(rating);
-            const pid = player.id || p.id;
+          {/* Find MOTM (highest rated) */}
+          {(() => {
+            let motmPid = null;
+            let bestRating = 0;
+            for (const p of starters) {
+              const pl = p.player || p;
+              const r = parseFloat(p.performance?.rating || pl.rating || 0);
+              if (r > bestRating) { bestRating = r; motmPid = pl.id || p.id; }
+            }
 
-            return (
-              <div key={i} style={{
-                position: 'absolute',
-                left: `${px}%`,
-                top: `${py}%`,
-                transform: 'translate(-50%, -50%)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 2,
-                zIndex: 10,
-              }}>
-                {/* Player photo circle */}
-                <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
-                  background: ratingNum >= 7 ? '#00D26A' : ratingNum >= 6 ? '#444' : '#666',
-                  border: `2px solid ${ratingNum >= 7 ? '#00D26A' : ratingNum >= 6 ? '#888' : '#555'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden', position: 'relative',
+            function getRatingColor(num: number, isMotm: boolean) {
+              if (isMotm) return '#2196F3'; // biru MOTM
+              if (num >= 7) return '#00D26A'; // hijau baik
+              if (num >= 6) return '#888'; // abu rata-rata
+              return '#FF8C00'; // orange buruk
+            }
+
+            return starters.map((p: any, i: number) => {
+              const player = p.player || p;
+              const py = (p.x ?? player.x ?? 0.5) * 100;
+              const px = (p.y ?? player.y ?? 0.5) * 100;
+              const rating = p.performance?.rating || player.rating;
+              const ratingNum = parseFloat(rating) || 0;
+              const pid = player.id || p.id;
+              const isMotm = pid === motmPid && ratingNum > 0;
+              const color = getRatingColor(ratingNum, isMotm);
+
+              return (
+                <div key={i} style={{
+                  position: 'absolute',
+                  left: `${px}%`, top: `${py}%`,
+                  transform: 'translate(-50%, -50%)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, zIndex: 10,
                 }}>
-                  <img src={`https://images.fotmob.com/image_resources/playerimage/player/${pid}.png`} alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  {/* Shirt number overlay */}
+                  {/* Player photo */}
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%',
+                    background: color,
+                    border: `2.5px solid ${color}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden', position: 'relative',
+                    boxShadow: isMotm ? '0 0 8px rgba(33,150,243,0.6)' : 'none',
+                  }}>
+                    <img
+                      src={`https://images.fotmob.com/image_resources/playerimage/player/${pid}.png`}
+                      alt=""
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                      onError={(e) => {
+                        const el = e.target as HTMLImageElement;
+                        el.style.display = 'none';
+                        // Show shirt number as fallback
+                        if (el.parentElement) {
+                          el.parentElement.style.background = '#333';
+                          el.parentElement.innerHTML = `<span style="font-size:14px;font-weight:800;color:#fff">${player.shirtNumber || p.shirtNumber || '?'}</span>`;
+                        }
+                      }}
+                    />
+                    {/* Shirt number badge */}
+                    <span style={{
+                      position: 'absolute', bottom: -2, right: -2,
+                      background: '#000', color: '#fff', fontSize: 9, fontWeight: 800,
+                      width: 16, height: 16, borderRadius: '50%', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      border: '1.5px solid #333',
+                    }}>{player.shirtNumber || p.shirtNumber || ''}</span>
+                    {/* MOTM star */}
+                    {isMotm && (
+                      <span style={{
+                        position: 'absolute', top: -4, right: -4,
+                        fontSize: 12, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
+                      }}>⭐</span>
+                    )}
+                  </div>
+                  {/* Player name */}
                   <span style={{
-                    position: 'absolute', bottom: -1, right: -1,
-                    background: '#000', color: '#fff', fontSize: 9, fontWeight: 800,
-                    width: 16, height: 16, borderRadius: '50%', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                    border: '1px solid #333',
-                  }}>{player.shirtNumber || p.shirtNumber || ''}</span>
+                    fontSize: 9, fontWeight: 700, color: '#fff',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                    whiteSpace: 'nowrap', maxWidth: 65, overflow: 'hidden', textOverflow: 'ellipsis',
+                    textAlign: 'center',
+                  }}>
+                    {(player.lastName || player.name || '').split(' ').pop()}
+                  </span>
+                  {/* Rating badge */}
+                  {ratingNum > 0 && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 800, color: '#fff',
+                      background: color,
+                      padding: '1px 5px', borderRadius: 3,
+                    }}>{ratingNum.toFixed(1)}</span>
+                  )}
                 </div>
-                {/* Player name */}
-                <span style={{
-                  fontSize: 9, fontWeight: 700, color: '#fff',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-                  whiteSpace: 'nowrap', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis',
-                  textAlign: 'center',
-                }}>
-                  {(player.lastName || player.name || '').split(' ').pop()}
-                </span>
-                {/* Rating badge */}
-                {rating && (
-                  <span style={{
-                    fontSize: 9, fontWeight: 800, color: '#fff',
-                    background: ratingNum >= 7 ? '#00D26A' : ratingNum >= 6 ? '#555' : '#FF4444',
-                    padding: '1px 4px', borderRadius: 3,
-                  }}>{typeof rating === 'number' ? rating.toFixed(1) : rating}</span>
-                )}
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
 
         {/* Substitutes */}
