@@ -429,7 +429,7 @@ function LineupTab({ detail }: { detail: MatchDetailData }) {
     return <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666' }}>No lineup data available</div>;
   }
 
-  const renderTeam = (team: any, side: 'home' | 'away') => {
+  const renderPitch = (team: any, side: 'home' | 'away') => {
     if (!team) return null;
     const starters = team.startingXI || team.starters || [];
     const subs = team.substitutes || team.subs || [];
@@ -437,83 +437,146 @@ function LineupTab({ detail }: { detail: MatchDetailData }) {
     const teamData = side === 'home' ? header.teams[0] : header.teams[1];
 
     return (
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Team name + formation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '8px 0', borderBottom: '1px solid #333' }}>
-          <img src={teamLogoUrl(teamData?.id)} alt="" style={{ width: 24, height: 24, objectFit: 'contain' }} />
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{team.name || teamData?.name || ''}</span>
-          {team.formation && <span style={{ fontSize: 13, fontWeight: 700, color: '#00D26A', marginLeft: 'auto' }}>{team.formation}</span>}
+      <div style={{ marginBottom: 32 }}>
+        {/* Team header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '10px 0', borderBottom: '1px solid #333' }}>
+          <img src={teamLogoUrl(teamData?.id)} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }} />
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{team.name || teamData?.name || ''}</span>
+          {team.formation && <span style={{ fontSize: 14, fontWeight: 700, color: '#00D26A', marginLeft: 'auto' }}>{team.formation}</span>}
+          {coach?.name && <span style={{ fontSize: 12, color: '#666', marginLeft: 8 }}>Coach: {coach.name}</span>}
         </div>
 
-        {/* Coach */}
-        {coach?.name && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', marginBottom: 8, opacity: 0.7 }}>
-            <span style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Coach</span>
-            <span style={{ fontSize: 13, color: '#fff' }}>{coach.name}</span>
-          </div>
-        )}
+        {/* Pitch SVG */}
+        <div style={{ position: 'relative', width: '100%', maxWidth: 400, margin: '0 auto', aspectRatio: '3/4' }}>
+          {/* Pitch background */}
+          <svg viewBox="0 0 300 400" style={{ width: '100%', height: '100%' }}>
+            {/* Grass */}
+            <rect x="0" y="0" width="300" height="400" fill="#1a472a" rx="4" />
+            {/* Stripes */}
+            <rect x="0" y="0" width="300" height="50" fill="#1d4f30" />
+            <rect x="0" y="100" width="300" height="50" fill="#1d4f30" />
+            <rect x="0" y="200" width="300" height="50" fill="#1d4f30" />
+            <rect x="0" y="300" width="300" height="50" fill="#1d4f30" />
+            {/* Outline */}
+            <rect x="10" y="10" width="280" height="380" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+            {/* Center line */}
+            <line x1="10" y1="200" x2="290" y2="200" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+            {/* Center circle */}
+            <circle cx="150" cy="200" r="40" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+            <circle cx="150" cy="200" r="3" fill="rgba(255,255,255,0.3)" />
+            {/* Top penalty box */}
+            <rect x="60" y="10" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+            <rect x="100" y="10" width="100" height="25" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+            <circle cx="150" cy="52" r="3" fill="rgba(255,255,255,0.3)" />
+            {/* Top goal */}
+            <rect x="120" y="2" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+            {/* Bottom penalty box */}
+            <rect x="60" y="330" width="180" height="60" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+            <rect x="100" y="365" width="100" height="25" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+            <circle cx="150" cy="348" r="3" fill="rgba(255,255,255,0.3)" />
+            {/* Bottom goal */}
+            <rect x="120" y="390" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+          </svg>
 
-        {/* Starting XI */}
-        <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 12 }}>
-          Starting XI
-        </div>
-        {starters.map((p: any, i: number) => {
-          const player = p.player || p;
-          const rating = p.performance?.rating || player.rating;
-          const isCaptain = p.captain;
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #1A1A1A' }}>
-              <img src={`https://images.fotmob.com/image_resources/playerimage/player/${player.id || p.id}.png`} alt=""
-                style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', background: '#1A1A1A' }}
-                onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#666', minWidth: 22, textAlign: 'center' }}>
-                {player.jerseyNumber || p.shirtNumber || ''}
-              </span>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: '#fff' }}>
-                {player.name || p.name || ''}{isCaptain ? ' (C)' : ''}
-              </span>
-              {rating && (
+          {/* Players on pitch */}
+          {starters.map((p: any, i: number) => {
+            const player = p.player || p;
+            const px = (p.x ?? player.x ?? 0.5) * 100;
+            const py = (p.y ?? player.y ?? 0.5) * 100;
+            const rating = p.performance?.rating || player.rating;
+            const ratingNum = parseFloat(rating);
+            const pid = player.id || p.id;
+
+            return (
+              <div key={i} style={{
+                position: 'absolute',
+                left: `${px}%`,
+                top: `${py}%`,
+                transform: 'translate(-50%, -50%)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                zIndex: 10,
+              }}>
+                {/* Player photo circle */}
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: ratingNum >= 7 ? '#00D26A' : ratingNum >= 6 ? '#444' : '#666',
+                  border: `2px solid ${ratingNum >= 7 ? '#00D26A' : ratingNum >= 6 ? '#888' : '#555'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  overflow: 'hidden', position: 'relative',
+                }}>
+                  <img src={`https://images.fotmob.com/image_resources/playerimage/player/${pid}.png`} alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  {/* Shirt number overlay */}
+                  <span style={{
+                    position: 'absolute', bottom: -1, right: -1,
+                    background: '#000', color: '#fff', fontSize: 9, fontWeight: 800,
+                    width: 16, height: 16, borderRadius: '50%', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    border: '1px solid #333',
+                  }}>{player.shirtNumber || p.shirtNumber || ''}</span>
+                </div>
+                {/* Player name */}
                 <span style={{
-                  fontSize: 12, fontWeight: 700, padding: '2px 6px', borderRadius: 3,
-                  background: parseFloat(rating) >= 7 ? 'rgba(0,210,106,0.2)' : parseFloat(rating) >= 6 ? '#333' : 'rgba(255,68,68,0.2)',
-                  color: parseFloat(rating) >= 7 ? '#00D26A' : parseFloat(rating) >= 6 ? '#888' : '#FF4444',
-                }}>{typeof rating === 'number' ? rating.toFixed(1) : rating}</span>
-              )}
-            </div>
-          );
-        })}
+                  fontSize: 9, fontWeight: 700, color: '#fff',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                  whiteSpace: 'nowrap', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis',
+                  textAlign: 'center',
+                }}>
+                  {(player.lastName || player.name || '').split(' ').pop()}
+                </span>
+                {/* Rating badge */}
+                {rating && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 800, color: '#fff',
+                    background: ratingNum >= 7 ? '#00D26A' : ratingNum >= 6 ? '#555' : '#FF4444',
+                    padding: '1px 4px', borderRadius: 3,
+                  }}>{typeof rating === 'number' ? rating.toFixed(1) : rating}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
         {/* Substitutes */}
         {subs.length > 0 && (
-          <>
-            <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16 }}>
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 11, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
               Substitutes
             </div>
-            {subs.map((p: any, i: number) => {
-              const player = p.player || p;
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #1A1A1A' }}>
-                  <img src={`https://images.fotmob.com/image_resources/playerimage/player/${player.id || p.id}.png`} alt=""
-                    style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', background: '#1A1A1A' }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#666', minWidth: 20, textAlign: 'center' }}>
-                    {player.jerseyNumber || p.shirtNumber || ''}
-                  </span>
-                  <span style={{ fontSize: 13, color: '#888' }}>{player.name || p.name || ''}</span>
-                </div>
-              );
-            })}
-          </>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {subs.map((p: any, i: number) => {
+                const player = p.player || p;
+                const pid = player.id || p.id;
+                return (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
+                    background: '#222', borderRadius: 6,
+                  }}>
+                    <img src={`https://images.fotmob.com/image_resources/playerimage/player/${pid}.png`} alt=""
+                      style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#666' }}>{player.shirtNumber || p.shirtNumber || ''}</span>
+                    <span style={{ fontSize: 12, color: '#ccc' }}>{player.name || p.name || ''}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
     );
   };
 
   return (
-    <div style={{ display: 'flex', gap: 16 }}>
-      {renderTeam(lineup.homeTeam, 'home')}
-      <div style={{ width: 1, background: '#333', margin: '0 8px' }} />
-      {renderTeam(lineup.awayTeam, 'away')}
+    <div>
+      {renderPitch(lineup.homeTeam, 'home')}
+      <div style={{ height: 1, background: '#333', margin: '24px 0' }} />
+      {renderPitch(lineup.awayTeam, 'away')}
     </div>
   );
 }
