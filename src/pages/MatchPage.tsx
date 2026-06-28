@@ -491,9 +491,9 @@ function LineupTab({ detail }: { detail: MatchDetailData }) {
 
             function getRatingColor(num: number, isMotm: boolean) {
               if (isMotm) return '#2196F3'; // biru MOTM
-              if (num >= 7) return '#00D26A'; // hijau baik
-              if (num >= 6) return '#888'; // abu rata-rata
-              return '#FF8C00'; // orange buruk
+              if (num >= 7.0) return '#00D26A'; // hijau baik
+              if (num < 6.5) return '#FF8C00'; // orange buruk
+              return '#888'; // abu rata-rata (6.5-6.9)
             }
 
             return starters.map((p: any, i: number) => {
@@ -505,6 +505,9 @@ function LineupTab({ detail }: { detail: MatchDetailData }) {
               const pid = player.id || p.id;
               const isMotm = pid === motmPid && ratingNum > 0;
               const color = getRatingColor(ratingNum, isMotm);
+              const photoUrl = `https://images.fotmob.com/image_resources/playerimage/player/${pid}.png`;
+              const shirtNum = player.shirtNumber || p.shirtNumber || '?';
+              const lastName = (player.lastName || player.name || '').split(' ').pop();
 
               return (
                 <div key={i} style={{
@@ -513,60 +516,64 @@ function LineupTab({ detail }: { detail: MatchDetailData }) {
                   transform: 'translate(-50%, -50%)',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, zIndex: 10,
                 }}>
-                  {/* Player photo */}
+                  {/* Player circle with photo */}
                   <div style={{
-                    width: 40, height: 40, borderRadius: '50%',
-                    background: color,
+                    width: 42, height: 42, borderRadius: '50%',
+                    background: '#1a1a1a',
                     border: `2.5px solid ${color}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     overflow: 'hidden', position: 'relative',
-                    boxShadow: isMotm ? '0 0 8px rgba(33,150,243,0.6)' : 'none',
+                    boxShadow: isMotm ? '0 0 10px rgba(33,150,243,0.7)' : `0 0 4px ${color}40`,
                   }}>
+                    {/* Photo - always render, CSS handles fallback via background */}
                     <img
-                      src={`https://images.fotmob.com/image_resources/playerimage/player/${pid}.png`}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                      src={photoUrl}
+                      alt={shirtNum}
+                      style={{
+                        width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%',
+                        position: 'absolute', top: 0, left: 0, zIndex: 2,
+                      }}
                       onError={(e) => {
-                        const el = e.target as HTMLImageElement;
-                        el.style.display = 'none';
-                        // Show shirt number as fallback
-                        if (el.parentElement) {
-                          el.parentElement.style.background = '#333';
-                          el.parentElement.innerHTML = `<span style="font-size:14px;font-weight:800;color:#fff">${player.shirtNumber || p.shirtNumber || '?'}</span>`;
-                        }
+                        // Hide broken image, shirt number below becomes visible
+                        (e.target as HTMLImageElement).style.display = 'none';
                       }}
                     />
-                    {/* Shirt number badge */}
+                    {/* Fallback shirt number (always rendered, hidden by photo when loaded) */}
                     <span style={{
-                      position: 'absolute', bottom: -2, right: -2,
-                      background: '#000', color: '#fff', fontSize: 9, fontWeight: 800,
-                      width: 16, height: 16, borderRadius: '50%', display: 'flex',
+                      position: 'absolute', zIndex: 1,
+                      fontSize: 16, fontWeight: 800, color: '#fff',
+                    }}>{shirtNum}</span>
+                    {/* Shirt number badge bottom-right */}
+                    <span style={{
+                      position: 'absolute', bottom: -2, right: -2, zIndex: 3,
+                      background: '#000', color: '#fff', fontSize: 8, fontWeight: 800,
+                      width: 15, height: 15, borderRadius: '50%', display: 'flex',
                       alignItems: 'center', justifyContent: 'center',
-                      border: '1.5px solid #333',
-                    }}>{player.shirtNumber || p.shirtNumber || ''}</span>
+                      border: '1.5px solid #444',
+                    }}>{shirtNum}</span>
                     {/* MOTM star */}
                     {isMotm && (
                       <span style={{
-                        position: 'absolute', top: -4, right: -4,
-                        fontSize: 12, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
+                        position: 'absolute', top: -5, right: -5, zIndex: 4,
+                        fontSize: 14, lineHeight: 1,
+                        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
                       }}>⭐</span>
                     )}
                   </div>
                   {/* Player name */}
                   <span style={{
                     fontSize: 9, fontWeight: 700, color: '#fff',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.9)',
                     whiteSpace: 'nowrap', maxWidth: 65, overflow: 'hidden', textOverflow: 'ellipsis',
                     textAlign: 'center',
-                  }}>
-                    {(player.lastName || player.name || '').split(' ').pop()}
-                  </span>
+                  }}>{lastName}</span>
                   {/* Rating badge */}
                   {ratingNum > 0 && (
                     <span style={{
                       fontSize: 9, fontWeight: 800, color: '#fff',
                       background: color,
                       padding: '1px 5px', borderRadius: 3,
+                      textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                     }}>{ratingNum.toFixed(1)}</span>
                   )}
                 </div>
