@@ -482,8 +482,8 @@ function LineupTab({ detail }: { detail: MatchDetailData }) {
           {/* Players on pitch */}
           {starters.map((p: any, i: number) => {
             const player = p.player || p;
-            const px = (p.x ?? player.x ?? 0.5) * 100;
-            const py = (p.y ?? player.y ?? 0.5) * 100;
+            const py = (p.x ?? player.x ?? 0.5) * 100; // x = along pitch length → vertical (top)
+            const px = (p.y ?? player.y ?? 0.5) * 100; // y = across pitch width → horizontal (left)
             const rating = p.performance?.rating || player.rating;
             const ratingNum = parseFloat(rating);
             const pid = player.id || p.id;
