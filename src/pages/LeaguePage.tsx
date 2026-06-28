@@ -456,30 +456,95 @@ function FixturesTab({ league }: { league: LeagueDetailData }) {
     );
   }
 
-  // Group matches by status
-  const finished = allMatches.filter((m: any) => m.status?.finished);
-  const upcoming = allMatches.filter((m: any) => !m.status?.started && !m.status?.finished);
-  const live = allMatches.filter((m: any) => m.status?.started && !m.status?.finished);
+  // Sort matches by date
+  const sortedMatches = [...allMatches].sort((a, b) => {
+    const dateA = a.status?.utcTime ? new Date(a.status.utcTime).getTime() : 0;
+    const dateB = b.status?.utcTime ? new Date(b.status.utcTime).getTime() : 0;
+    return dateA - dateB;
+  });
+
+  // Group by status
+  const live = sortedMatches.filter((m: any) => m.status?.started && !m.status?.finished);
+  const upcoming = sortedMatches.filter((m: any) => !m.status?.started && !m.status?.finished);
+  const finished = sortedMatches.filter((m: any) => m.status?.finished);
+
+  // State for load more
+  const [showCount, setShowCount] = useState(30);
+  const [expandedSection, setExpandedSection] = useState<'upcoming' | 'finished' | null>(null);
 
   return (
     <div>
+      {/* Live Matches */}
       {live.length > 0 && (
-        <MatchSection title="Live" matches={live} navigate={navigate} />
+        <MatchSection title="Live" matches={live} navigate={navigate} showAll />
       )}
+
+      {/* Upcoming Matches */}
       {upcoming.length > 0 && (
-        <MatchSection title="Upcoming" matches={upcoming.slice(0, 30)} navigate={navigate} />
+        <MatchSection
+          title={`Upcoming (${upcoming.length})`}
+          matches={expandedSection === 'upcoming' ? upcoming : upcoming.slice(0, showCount)}
+          navigate={navigate}
+          showLoadMore={upcoming.length > showCount}
+          onLoadMore={() => setExpandedSection(expandedSection === 'upcoming' ? null : 'upcoming')}
+          isExpanded={expandedSection === 'upcoming'}
+        />
       )}
+
+      {/* Finished Matches */}
       {finished.length > 0 && (
-        <MatchSection title="Results" matches={finished.slice(-30).reverse()} navigate={navigate} />
+        <MatchSection
+          title={`Results (${finished.length})`}
+          matches={expandedSection === 'finished' ? finished.slice().reverse() : finished.slice(-showCount).reverse()}
+          navigate={navigate}
+          showLoadMore={finished.length > showCount}
+          onLoadMore={() => setExpandedSection(expandedSection === 'finished' ? null : 'finished')}
+          isExpanded={expandedSection === 'finished'}
+        />
       )}
     </div>
   );
 }
 
-function MatchSection({ title, matches, navigate }: { title: string; matches: any[]; navigate: any }) {
+function MatchSection({
+  title,
+  matches,
+  navigate,
+  showAll = false,
+  showLoadMore = false,
+  onLoadMore,
+  isExpanded = false,
+}: {
+  title: string;
+  matches: any[];
+  navigate: any;
+  showAll?: boolean;
+  showLoadMore?: boolean;
+  onLoadMore?: () => void;
+  isExpanded?: boolean;
+}) {
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={S.sectionTitle}>{title}</div>
+      <div style={{ ...S.sectionTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>{title}</span>
+        {showLoadMore && (
+          <button
+            onClick={onLoadMore}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: isExpanded ? colors.accent : colors.textMuted,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: '4px 8px',
+              fontFamily: 'inherit',
+            }}
+          >
+            {isExpanded ? 'Show Less' : `Show All ${matches.length}`}
+          </button>
+        )}
+      </div>
       {matches.map((m: any, i: number) => (
         <div
           key={m.id || i}
@@ -493,29 +558,31 @@ function MatchSection({ title, matches, navigate }: { title: string; matches: an
             borderRadius: i === 0 ? '8px 8px 0 0' : i === matches.length - 1 ? '0 0 8px 8px' : 0,
           }}
           onClick={() => navigate(`/match/${m.id}`)}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = colors.bgHover;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = colors.bgCard;
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = colors.bgHover; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = colors.bgCard; }}
         >
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
             <img src={teamLogoUrl(m.home?.id)} alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
-            <span style={{ fontSize: 13, fontWeight: 500 }}>{m.home?.name || ''}</span>
+            <span style={{ fontSize: 13 }}>{m.home?.name || ''}</span>
           </div>
-          <div style={{
-            fontSize: 14,
-            fontWeight: 700,
-            fontVariantNumeric: 'tabular-nums' as const,
-            minWidth: 70,
-            textAlign: 'center',
-          }}>
-            {m.status?.finished || m.status?.started
-              ? m.status?.scoreStr || ''
+          <div style={{ minWidth: 70, textAlign: 'center', fontWeight: 700, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>
+            {m.status?.finished
+              ? m.status?.scoreStr
+              : m.status?.started
+              ? m.status?.scoreStr || m.status?.liveTime?.short || ''
               : m.status?.utcTime
               ? new Date(m.status.utcTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
               : 'TBD'}
+          </div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+            <span style={{ fontSize: 13 }}>{m.away?.name || ''}</span>
+            <img src={teamLogoUrl(m.away?.id)} alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
           </div>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
             <span style={{ fontSize: 13, fontWeight: 500 }}>{m.away?.name || ''}</span>
